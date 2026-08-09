@@ -1,6 +1,6 @@
 # CipherChannels
 
-![CipherChannels icon](modrinth/icon.png)
+![CipherChannels icon](assets/cipherchannels-icon.png)
 
 CipherChannels is a client-only Fabric and NeoForge mod for Minecraft **1.21.1**, **1.21.11**, **26.1**, **26.1.2**, and **26.2**. It encrypts an entire normal public-chat message for friends who share the same secret invite. The server needs no plugin: it relays one fixed 256-character ciphertext message, and Minecraft signs that ciphertext rather than the plaintext.
 
@@ -129,4 +129,4 @@ sh ./gradlew clean test build --no-daemon
 
 The build compiles all ten targets against their exact Minecraft versions and produces the loader-specific JARs plus a clean source ZIP.
 
-See [SECURITY.md](SECURITY.md), [CHANGELOG.md](CHANGELOG.md), [MODRINTH.md](MODRINTH.md), and [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). CipherChannels itself is [All Rights Reserved](LICENSE).
+See [SECURITY.md](SECURITY.md), [CHANGELOG.md](CHANGELOG.md), and [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). CipherChannels itself is [All Rights Reserved](LICENSE).
