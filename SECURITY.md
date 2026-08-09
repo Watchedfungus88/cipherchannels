@@ -1,6 +1,6 @@
 # Security model
 
-CipherChannels 1.0.0 provides shared-key confidentiality and authentication for complete Minecraft 1.21.1, 1.21.11, and 26.2 public-chat messages on Fabric and NeoForge. It is a client-only transport; it is not a private-message service, identity system, or anonymous network.
+CipherChannels 1.0.0 provides shared-key confidentiality and authentication for complete Minecraft 1.21.1, 1.21.11, 26.1, 26.1.2, and 26.2 public-chat messages on Fabric and NeoForge. It is a client-only transport; it is not a private-message service, identity system, or anonymous network.
 
 ## Cryptographic construction
 

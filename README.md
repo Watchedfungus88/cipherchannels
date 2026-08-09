@@ -2,7 +2,7 @@
 
 ![CipherChannels icon](modrinth/icon.png)
 
-CipherChannels is a client-only Fabric and NeoForge mod for Minecraft **1.21.1**, **1.21.11**, and **26.2**. It encrypts an entire normal public-chat message for friends who share the same secret invite. The server needs no plugin: it relays one fixed 256-character ciphertext message, and Minecraft signs that ciphertext rather than the plaintext.
+CipherChannels is a client-only Fabric and NeoForge mod for Minecraft **1.21.1**, **1.21.11**, **26.1**, **26.1.2**, and **26.2**. It encrypts an entire normal public-chat message for friends who share the same secret invite. The server needs no plugin: it relays one fixed 256-character ciphertext message, and Minecraft signs that ciphertext rather than the plaintext.
 
 ## Install
 
@@ -14,12 +14,16 @@ Choose exactly one JAR matching both the Minecraft version and mod loader:
 | 1.21.1 | NeoForge | NeoForge 21.1.248+ | 21 | `cipherchannels-1.0.0+neoforge.1.21.1.jar` |
 | 1.21.11 | Fabric | Fabric Loader 0.19.3+, Fabric API 0.141.6+1.21.11+ | 21 | `cipherchannels-1.0.0+fabric.1.21.11.jar` |
 | 1.21.11 | NeoForge | NeoForge 21.11.45+ | 21 | `cipherchannels-1.0.0+neoforge.1.21.11.jar` |
+| 26.1 | Fabric | Fabric Loader 0.19.3+, Fabric API 0.145.1+26.1+ | 25 | `cipherchannels-1.0.0+fabric.26.1.jar` |
+| 26.1 | NeoForge | NeoForge 26.1.0.19-beta+ | 25 | `cipherchannels-1.0.0+neoforge.26.1.jar` |
+| 26.1.2 | Fabric | Fabric Loader 0.19.3+, Fabric API 0.155.2+26.1.2+ | 25 | `cipherchannels-1.0.0+fabric.26.1.2.jar` |
+| 26.1.2 | NeoForge | NeoForge 26.1.2.94+ | 25 | `cipherchannels-1.0.0+neoforge.26.1.2.jar` |
 | 26.2 | Fabric | Fabric Loader 0.19.3+, Fabric API 0.156.0+26.2+ | 25 | `cipherchannels-1.0.0+fabric.26.2.jar` |
 | 26.2 | NeoForge | NeoForge 26.2.0.53-beta+ | 25 | `cipherchannels-1.0.0+neoforge.26.2.jar` |
 
-NeoForge for Minecraft 26.2 is currently a beta loader line. Put only the matching CipherChannels JAR in the instance's `mods` folder. Mod Menu is optional on Fabric; NeoForge exposes the manager from its Mods screen. Every variant also provides the chat button and configurable gameplay-only `O` key. The shortcut does not fire while chat or another screen is open.
+NeoForge for Minecraft 26.1 and 26.2 is currently on beta loader builds. Put only the matching CipherChannels JAR in the instance's `mods` folder. Mod Menu is optional on Fabric; NeoForge exposes the manager from its Mods screen. Every variant also provides the chat button and configurable gameplay-only `O` key. The shortcut does not fire while chat or another screen is open.
 
-All six variants use the same protocol, so a channel invite and encrypted message can be shared across supported Minecraft versions and loaders when the server relays the frame unchanged.
+All ten variants use the same protocol, so a channel invite and encrypted message can be shared across supported Minecraft versions and loaders when the server relays the frame unchanged.
 
 ## Start using it
 
@@ -123,6 +127,6 @@ Use Java 25 to run Gradle; the build automatically obtains its Java 21 toolchain
 sh ./gradlew clean test build --no-daemon
 ```
 
-The build compiles all six targets against their exact Minecraft mappings, runs protocol/storage/chat/UI tests and 50,000-input fuzz suites, and produces the loader-specific JARs plus a clean source ZIP.
+The build compiles all ten targets against their exact Minecraft versions and produces the loader-specific JARs plus a clean source ZIP.
 
 See [SECURITY.md](SECURITY.md), [CHANGELOG.md](CHANGELOG.md), [MODRINTH.md](MODRINTH.md), and [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). CipherChannels itself is [All Rights Reserved](LICENSE).

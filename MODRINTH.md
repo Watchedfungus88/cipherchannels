@@ -12,11 +12,11 @@ Client-side encrypted public chat for Fabric and NeoForge, with fixed markerless
 
 - Categories: Utility, Social
 - Environment: Client only
-- Minecraft versions: 1.21.1, 1.21.11, 26.2
+- Minecraft versions: 1.21.1, 1.21.11, 26.1, 26.1.2, 26.2
 - Loaders: Fabric, NeoForge
-- Java: 21 for 1.21.x; 25 for 26.2
+- Java: 21 for 1.21.x; 25 for 26.x
 - Fabric requires Fabric Loader 0.19.3+ and the matching Fabric API
-- NeoForge requires 21.1.248+ for 1.21.1, 21.11.45+ for 1.21.11, or 26.2.0.53-beta+ for 26.2
+- NeoForge requires 21.1.248+ for 1.21.1, 21.11.45+ for 1.21.11, 26.1.0.19-beta+ for 26.1, 26.1.2.94+ for 26.1.2, or 26.2.0.53-beta+ for 26.2
 - Mod Menu is optional on Fabric
 - License: All Rights Reserved
 
@@ -26,13 +26,17 @@ Client-side encrypted public chat for Fabric and NeoForge, with fixed markerless
 - `cipherchannels-1.0.0+neoforge.1.21.1.jar`
 - `cipherchannels-1.0.0+fabric.1.21.11.jar`
 - `cipherchannels-1.0.0+neoforge.1.21.11.jar`
+- `cipherchannels-1.0.0+fabric.26.1.jar`
+- `cipherchannels-1.0.0+neoforge.26.1.jar`
+- `cipherchannels-1.0.0+fabric.26.1.2.jar`
+- `cipherchannels-1.0.0+neoforge.26.1.2.jar`
 - `cipherchannels-1.0.0+fabric.26.2.jar`
 - `cipherchannels-1.0.0+neoforge.26.2.jar`
 - Source release: `CipherChannels-1.0.0-source.zip`
 - Icon: `modrinth/icon.png`
 - Changelog: `CHANGELOG.md`
 
-Create one Modrinth version entry per JAR so each file declares only its exact Minecraft version and loader. The 26.2 NeoForge entry should be marked beta because its NeoForge dependency is a beta build. The other five can be marked release.
+Create one Modrinth version entry per JAR so each file declares only its exact Minecraft version and loader. The 26.1 and 26.2 NeoForge entries should be marked beta because their NeoForge dependencies are beta builds. The other eight can be marked release.
 
 ## Description
 
