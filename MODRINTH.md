@@ -6,29 +6,39 @@ CipherChannels
 
 ## Summary
 
-Client-side encrypted public chat for Minecraft 26.2 Fabric, with fixed markerless messages, session-only keys, replay blocking, and a guided channel UI.
+Client-side encrypted public chat for Fabric and NeoForge, with fixed markerless messages, session-only keys, replay blocking, and a guided channel UI.
 
 ## Categories and compatibility
 
 - Categories: Utility, Social
 - Environment: Client only
-- Minecraft version: 26.2
-- Loader: Fabric
-- Java: 25
-- Required: Fabric Loader 0.19.3+, Fabric API 0.156.0+26.2+
-- Optional: Mod Menu 20.0.1+
+- Minecraft versions: 1.21.1, 1.21.11, 26.2
+- Loaders: Fabric, NeoForge
+- Java: 21 for 1.21.x; 25 for 26.2
+- Fabric requires Fabric Loader 0.19.3+ and the matching Fabric API
+- NeoForge requires 21.1.248+ for 1.21.1, 21.11.45+ for 1.21.11, or 26.2.0.53-beta+ for 26.2
+- Mod Menu is optional on Fabric
 - License: All Rights Reserved
 
 ## Files
 
-- Primary upload: `cipherchannels-1.0.0+mc26.2.jar`
-- Source release: `CipherChannels-1.0.0+mc26.2-source.zip`
+- `cipherchannels-1.0.0+fabric.1.21.1.jar`
+- `cipherchannels-1.0.0+neoforge.1.21.1.jar`
+- `cipherchannels-1.0.0+fabric.1.21.11.jar`
+- `cipherchannels-1.0.0+neoforge.1.21.11.jar`
+- `cipherchannels-1.0.0+fabric.26.2.jar`
+- `cipherchannels-1.0.0+neoforge.26.2.jar`
+- Source release: `CipherChannels-1.0.0-source.zip`
 - Icon: `modrinth/icon.png`
 - Changelog: `CHANGELOG.md`
+
+Create one Modrinth version entry per JAR so each file declares only its exact Minecraft version and loader. The 26.2 NeoForge entry should be marked beta because its NeoForge dependency is a beta build. The other five can be marked release.
 
 ## Description
 
 CipherChannels encrypts an entire public-chat message into one fixed 256-character ciphertext that a vanilla server can relay without a plugin. Friends import the same secret invite; Minecraft signs ciphertext, and authenticated recipients see plaintext with a `[CC]` badge and hoverable exact wire data.
+
+The same wire protocol is used by all supported Fabric and NeoForge builds, so invites and encrypted messages remain compatible across those client variants.
 
 The default Base32768 transport guarantees 443 raw UTF-8 bytes. Helpful compression can carry up to 4,096 restored bytes in the same fixed message. A manual per-server ASCII compatibility mode is available for servers that reject Unicode and guarantees 155 raw bytes.
 

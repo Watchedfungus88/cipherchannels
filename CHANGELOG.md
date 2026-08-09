@@ -2,6 +2,8 @@
 
 ## 1.0.0 — 2026-08-09
 
+- Added Fabric and NeoForge builds for Minecraft 1.21.1, 1.21.11, and 26.2 from one shared protocol/security core.
+- Added native loader integration for key mappings and configuration screens; Mod Menu remains an optional Fabric integration.
 - Replaced the unreleased `~CC1:…~` public-chat format with markerless, fixed 256-character frames; no legacy receive path is shipped.
 - Added a 480-byte Base32768 high-capacity transport with a guaranteed 443 raw UTF-8 bytes and a manual per-server 192-byte Base64url compatibility transport with 155 raw bytes.
 - Added bounded raw-DEFLATE compression for useful drafts up to 4,096 restored UTF-8 bytes.

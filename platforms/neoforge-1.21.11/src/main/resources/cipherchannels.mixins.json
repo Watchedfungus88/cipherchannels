@@ -1,0 +1,7 @@
+{
+  "required": true,
+  "package": "dev.cipherchannels.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "client": ["ScreenInvoker", "ClientPacketListenerMixin", "ChatComponentMixin", "ChatScreenMixin"],
+  "injectors": {"defaultRequire": 1}
+}

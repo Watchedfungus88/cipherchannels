@@ -1,0 +1,46 @@
+package dev.cipherchannels;
+
+import com.mojang.blaze3d.platform.InputConstants;
+import dev.cipherchannels.ui.ChannelManagerScreen;
+import dev.cipherchannels.ui.ClientContext;
+import net.minecraft.client.KeyMapping;
+import net.minecraft.client.Minecraft;
+import net.neoforged.api.distmarker.Dist;
+import net.neoforged.bus.api.IEventBus;
+import net.neoforged.fml.ModContainer;
+import net.neoforged.fml.common.Mod;
+import net.neoforged.fml.loading.FMLPaths;
+import net.neoforged.neoforge.client.event.ClientTickEvent;
+import net.neoforged.neoforge.client.event.RegisterKeyMappingsEvent;
+import net.neoforged.neoforge.client.gui.IConfigScreenFactory;
+import net.neoforged.neoforge.common.NeoForge;
+
+@Mod(value = CipherChannels.MOD_ID, dist = Dist.CLIENT)
+public final class CipherChannelsNeoForge {
+    private static final KeyMapping OPEN_SCREEN = new KeyMapping("key.cipherchannels.open",
+        InputConstants.Type.KEYSYM, InputConstants.KEY_O, "key.category.cipherchannels.general");
+
+    public CipherChannelsNeoForge(IEventBus modBus, ModContainer container) {
+        CipherChannels.initialize(FMLPaths.CONFIGDIR.get());
+        modBus.addListener(CipherChannelsNeoForge::registerKeys);
+        NeoForge.EVENT_BUS.addListener(CipherChannelsNeoForge::tick);
+        container.registerExtensionPoint(IConfigScreenFactory.class,
+            (ignored, parent) -> new ChannelManagerScreen(parent));
+        Runtime.getRuntime().addShutdownHook(new Thread(CipherChannels::shutdown, "CipherChannels shutdown"));
+    }
+
+    private static void registerKeys(RegisterKeyMappingsEvent event) {
+        event.register(OPEN_SCREEN);
+    }
+
+    private static void tick(ClientTickEvent.Post event) {
+        Minecraft minecraft = Minecraft.getInstance();
+        if (OPEN_SCREEN.consumeClick() && minecraft.screen == null) {
+            minecraft.setScreen(new ChannelManagerScreen(null));
+        }
+        String notice = CipherChannels.channels().takeStartupNotice();
+        if (!notice.isEmpty()) {
+            ClientContext.notice(notice);
+        }
+    }
+}

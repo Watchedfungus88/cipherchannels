@@ -1,0 +1,28 @@
+modLoader="javafml"
+loaderVersion="[2,)"
+license="All Rights Reserved"
+
+[[mods]]
+modId="cipherchannels"
+version="${version}"
+displayName="CipherChannels"
+logoFile="assets/cipherchannels/icon.png"
+authors="CipherChannels contributors"
+description='''Markerless fixed-size encrypted public chat for players who share a secret channel invite.'''
+
+[[mixins]]
+config="cipherchannels.mixins.json"
+
+[[dependencies.cipherchannels]]
+modId="neoforge"
+type="required"
+versionRange="[${neoforge_version},)"
+ordering="NONE"
+side="CLIENT"
+
+[[dependencies.cipherchannels]]
+modId="minecraft"
+type="required"
+versionRange="[${minecraft_version}]"
+ordering="NONE"
+side="CLIENT"
