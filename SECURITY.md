@@ -52,4 +52,4 @@ There is no anonymity, forward secrecy, post-compromise security, malicious-clie
 
 Create a new channel, distribute the new invite through a separate trusted route, compare the new fingerprint, and forget the old channel. Never send the replacement invite through a channel whose key may already be compromised.
 
-Do not publish keys, invites, plaintext, or raw frames in a bug report. This source release does not define a private security mailbox; establish a trusted private contact with the distributor before sending sensitive reproduction data.
+Do not publish keys, invites, plaintext, or raw frames in a public bug report. Use [GitHub private vulnerability reporting](https://github.com/Watchedfungus88/cipherchannels/security/advisories/new) for sensitive security reports and reproduction data.
