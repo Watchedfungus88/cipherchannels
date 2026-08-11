@@ -6,6 +6,7 @@ import dev.cipherchannels.protocol.FrameCandidate;
 import dev.cipherchannels.protocol.FrameFailure;
 import dev.cipherchannels.protocol.FrameScanner;
 import java.util.List;
+import java.util.ArrayList;
 import java.util.Objects;
 import java.util.function.Function;
 import net.minecraft.ChatFormatting;
@@ -28,8 +29,107 @@ public final class ComponentTransformer {
     }
 
     public Component transform(Component source) {
+        if (!ChatLogProtection.allowsEncryption()) {
+            return source;
+        }
+        TransformResult flattened = transformAcrossNodes(source);
+        if (flattened != null) {
+            return TransformedMessageRegistry.mark(flattened.component);
+        }
         TransformResult result = transformInternal(source);
         return result.changed ? TransformedMessageRegistry.mark(result.component) : source;
+    }
+
+    private TransformResult transformAcrossNodes(Component source) {
+        List<FlatPart> parts = new ArrayList<>();
+        flatten(source, Style.EMPTY, parts);
+        boolean crossing = false;
+        for (int start = 0; start < parts.size();) {
+            if (parts.get(start).component != null) {
+                start++;
+                continue;
+            }
+            int end = start;
+            StringBuilder text = new StringBuilder();
+            while (end < parts.size() && parts.get(end).component == null) text.append(parts.get(end++).text);
+            for (FrameCandidate candidate : FrameScanner.scan(text.toString())) {
+                if (leafAt(parts, start, end, candidate.start()) != leafAt(parts, start, end, candidate.endExclusive() - 1)) {
+                    crossing = true;
+                    break;
+                }
+            }
+            if (crossing) break;
+            start = end;
+        }
+        if (!crossing) return null;
+        MutableComponent result = Component.empty();
+        for (int start = 0; start < parts.size();) {
+            FlatPart part = parts.get(start);
+            if (part.component != null) {
+                result.append(transformInternal(part.component).component);
+                start++;
+                continue;
+            }
+            int end = start;
+            while (end < parts.size() && parts.get(end).component == null) end++;
+            appendRun(result, parts, start, end);
+            start = end;
+        }
+        return new TransformResult(result, true);
+    }
+
+    private void flatten(Component source, Style inherited, List<FlatPart> parts) {
+        Style effective = source.getStyle().applyTo(inherited);
+        if (source.getContents() instanceof PlainTextContents plain) {
+            parts.add(new FlatPart(plain.text(), effective, null));
+        } else {
+            parts.add(new FlatPart(null, null, source.plainCopy().withStyle(effective)));
+        }
+        for (Component sibling : source.getSiblings()) flatten(sibling, effective, parts);
+    }
+
+    private void appendRun(MutableComponent result, List<FlatPart> parts, int start, int end) {
+        StringBuilder text = new StringBuilder();
+        for (int index = start; index < end; index++) text.append(parts.get(index).text);
+        int cursor = 0;
+        for (FrameCandidate candidate : FrameScanner.scan(text.toString())) {
+            appendRange(result, parts, start, end, cursor, candidate.start());
+            IncomingResult incoming = decryptor.apply(candidate.wire());
+            Style style = parts.get(leafAt(parts, start, end, candidate.start())).style;
+            if (incoming.authenticated()) {
+                result.append(Component.literal(incoming.plaintext()).withStyle(plaintextStyle(style, candidate.wire())));
+                result.append(authenticatedBadge(incoming.channel().name()));
+            } else if (incoming.failure() == FrameFailure.REPLAYED) {
+                result.append(Component.translatable("cipherchannels.chat.replay_blocked").withStyle(ChatFormatting.RED));
+            } else {
+                appendRange(result, parts, start, end, candidate.start(), candidate.endExclusive());
+                result.append(diagnosticBadge(incoming.failure()));
+            }
+            cursor = candidate.endExclusive();
+        }
+        appendRange(result, parts, start, end, cursor, text.length());
+    }
+
+    private static void appendRange(MutableComponent result, List<FlatPart> parts, int start, int end,
+                                    int from, int to) {
+        int offset = 0;
+        for (int index = start; index < end; index++) {
+            FlatPart part = parts.get(index);
+            int next = offset + part.text.length();
+            int localStart = Math.max(from, offset) - offset;
+            int localEnd = Math.min(to, next) - offset;
+            if (localEnd > localStart) result.append(Component.literal(part.text.substring(localStart, localEnd)).withStyle(part.style));
+            offset = next;
+        }
+    }
+
+    private static int leafAt(List<FlatPart> parts, int start, int end, int position) {
+        int offset = 0;
+        for (int index = start; index < end; index++) {
+            offset += parts.get(index).text.length();
+            if (position < offset) return index;
+        }
+        return end - 1;
     }
 
     private TransformResult transformInternal(Component source) {
@@ -140,4 +240,6 @@ public final class ComponentTransformer {
     private record TransformResult(MutableComponent component, boolean changed) {}
 
     private record LiteralResult(MutableComponent component, boolean changed) {}
+
+    private record FlatPart(String text, Style style, MutableComponent component) {}
 }

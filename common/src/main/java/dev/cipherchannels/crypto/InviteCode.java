@@ -7,8 +7,8 @@ import java.util.Base64;
 import java.util.Objects;
 
 public final class InviteCode {
-    private static final String PREFIX = "CC1.";
-    private static final byte[] DOMAIN = "CipherChannels invite checksum v1\0".getBytes(StandardCharsets.UTF_8);
+    private static final String PREFIX = "CC2.";
+    private static final byte[] DOMAIN = "CipherChannels invite checksum v2\0".getBytes(StandardCharsets.UTF_8);
     private static final int KEY_TEXT_LENGTH = 43;
     private static final int CHECKSUM_LENGTH = 8;
 
@@ -26,6 +26,9 @@ public final class InviteCode {
 
     public static KeyMaterial parse(String invite) {
         Objects.requireNonNull(invite, "invite");
+        if (invite.startsWith("CC1.")) {
+            throw new IllegalArgumentException("CipherChannels 1.x invites are incompatible; create a new 2.0 channel");
+        }
         if (invite.length() != PREFIX.length() + KEY_TEXT_LENGTH + 1 + CHECKSUM_LENGTH
             || !invite.startsWith(PREFIX)) {
             throw new IllegalArgumentException("Invite has an invalid format");

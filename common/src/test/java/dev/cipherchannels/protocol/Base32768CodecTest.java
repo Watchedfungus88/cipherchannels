@@ -48,6 +48,7 @@ class Base32768CodecTest {
             byte[] source = new byte[Base32768Codec.BINARY_LENGTH];
             random.nextBytes(source);
             String wire = Base32768Codec.encode(source);
+            assertEquals(wire, Normalizer.normalize(wire, Normalizer.Form.NFC));
             assertArrayEquals(source, Base32768Codec.decode(wire));
         }
     }

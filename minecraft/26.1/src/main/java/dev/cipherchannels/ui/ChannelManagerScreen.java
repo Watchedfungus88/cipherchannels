@@ -6,11 +6,17 @@ import dev.cipherchannels.channels.ChannelRecord;
 import dev.cipherchannels.channels.ChannelStatus;
 import dev.cipherchannels.channels.ServerBinding;
 import dev.cipherchannels.channels.TransportState;
+import dev.cipherchannels.channels.VerificationState;
+import dev.cipherchannels.chat.ChatLogProtection;
+import dev.cipherchannels.crypto.InviteCode;
+import dev.cipherchannels.crypto.KeyMaterial;
 import dev.cipherchannels.protocol.TransportMode;
+import dev.cipherchannels.storage.ConfigLoadState;
 import it.unimi.dsi.fastutil.booleans.BooleanConsumer;
 import java.util.UUID;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.components.MultiLineTextWidget;
 import net.minecraft.client.gui.components.StringWidget;
@@ -18,6 +24,8 @@ import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.screens.ConfirmScreen;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.Style;
+import net.minecraft.util.FormattedCharSequence;
 
 public final class ChannelManagerScreen extends Screen {
     enum Tab { OVERVIEW, CHANNELS, SHARE }
@@ -28,13 +36,25 @@ public final class ChannelManagerScreen extends Screen {
     private Form form = Form.NONE;
     private EditBox nameInput;
     private EditBox inviteInput;
+    private Button submitButton;
+    private String nameDraft = "";
+    private String inviteDraft = "";
+    private boolean revealInvite;
     private MultiLineTextWidget feedbackWidget;
+    private final ContentScroller contentScroller = new ContentScroller();
+    private boolean contentLayout;
     private UiFeedback feedback = new UiFeedback(UiFeedback.Severity.WARNING,
         Component.translatable("cipherchannels.feedback.welcome"));
 
     public ChannelManagerScreen(Screen parent) {
         super(Component.translatable("cipherchannels.screen.title"));
         this.parent = parent;
+    }
+
+    public static Screen create(Screen parent) {
+        return CipherChannels.channels().loadState().safeMode()
+            || CipherChannels.channels().loadState() == ConfigLoadState.RECOVERED
+            ? new ConfigurationRecoveryScreen(parent) : new ChannelManagerScreen(parent);
     }
 
     @Override
@@ -46,18 +66,30 @@ public final class ChannelManagerScreen extends Screen {
         addRenderableOnly(new StringWidget(left, 10, panelWidth, 16,
             Component.translatable("cipherchannels.screen.title").withStyle(ChatFormatting.AQUA), font));
 
+        int firstContentChild;
         if (config.channels().isEmpty()) {
+            contentScroller.reset(108, height - 36);
+            firstContentChild = children().size();
+            contentLayout = true;
             initOnboarding(left, panelWidth);
         } else {
             initHeader(left, panelWidth, config);
             initTabs(left, panelWidth);
             initFeedback(left, panelWidth, 104);
+            contentScroller.reset(124, height - 36);
+            firstContentChild = children().size();
+            contentLayout = true;
             switch (tab) {
                 case OVERVIEW -> initOverview(left, panelWidth, config);
                 case CHANNELS -> initChannels(left, panelWidth, config);
                 case SHARE -> initShare(left, panelWidth, config);
             }
         }
+        contentLayout = false;
+        for (int index = firstContentChild; index < children().size(); index++) {
+            if (children().get(index) instanceof AbstractWidget widget) contentScroller.track(widget);
+        }
+        contentScroller.finish();
         addRenderableWidget(Button.builder(Component.translatable("gui.done"), ignored -> onClose())
             .bounds(width / 2 - 75, height - 28, 150, 20).build());
     }
@@ -66,7 +98,10 @@ public final class ChannelManagerScreen extends Screen {
     public void onClose() {
         minecraft.setScreen(parent);
     }
-
+    @Override public boolean mouseScrolled(double mouseX, double mouseY, double horizontal, double vertical) {
+        return contentScroller.contains(mouseY) && contentScroller.scroll(vertical)
+            || super.mouseScrolled(mouseX, mouseY, horizontal, vertical);
+    }
     private void initOnboarding(int left, int panelWidth) {
         addText(left, 36, panelWidth, 2, Component.translatable("cipherchannels.onboarding.explanation"), ChatFormatting.WHITE);
         initFeedback(left, panelWidth, 66);
@@ -88,7 +123,7 @@ public final class ChannelManagerScreen extends Screen {
         String stateKey = switch (status.state()) {
             case OFF -> "cipherchannels.header.state.off";
             case READY -> "cipherchannels.header.state.on";
-            case NO_CHANNEL, SUSPENDED -> "cipherchannels.header.state.blocked";
+            case NO_CHANNEL, SUSPENDED, CONFIG_LOCKED -> "cipherchannels.header.state.blocked";
         };
         Component activeName = active == null ? Component.translatable("cipherchannels.channel.none") : Component.literal(active.name());
         Component endpoint = ClientContext.currentServer() == null
@@ -129,13 +164,22 @@ public final class ChannelManagerScreen extends Screen {
     private void initOverview(int left, int panelWidth, ChannelConfig config) {
         ChannelRecord active = config.activeChannel();
         ChannelStatus status = CipherChannels.channels().status(ClientContext.currentServer());
-        int y = 134;
+        int y = 128;
+        addText(left, y, panelWidth, 1, Component.translatable("cipherchannels.overview.section.security"), ChatFormatting.AQUA);
+        y += 18;
         addText(left, y, panelWidth, 1, Component.translatable("cipherchannels.overview.active",
             active == null ? Component.translatable("cipherchannels.channel.none") : active.name()), ChatFormatting.WHITE);
         y += 18;
         addText(left, y, panelWidth, 1, Component.translatable("cipherchannels.overview.key",
             active != null && CipherChannels.channels().hasSessionKey(active.id())
                 ? Component.translatable("cipherchannels.value.ready") : Component.translatable("cipherchannels.value.key_needed")), ChatFormatting.WHITE);
+        y += 18;
+        addText(left, y, panelWidth, 1, Component.translatable("cipherchannels.overview.verification", verificationLabel(active)), ChatFormatting.WHITE);
+        y += 18;
+        addText(left, y, panelWidth, 1, Component.translatable("cipherchannels.overview.replay", Component.translatable(CipherChannels.channels().replayPersistenceHealthy()
+            ? "cipherchannels.value.persisted" : "cipherchannels.value.session_only")), ChatFormatting.WHITE);
+        y += 18;
+        addText(left, y, panelWidth, 1, Component.translatable("cipherchannels.overview.logging", loggingLabel()), ChatFormatting.WHITE);
         y += 18;
         addText(left, y, panelWidth, 2, bindingSummary(active), ChatFormatting.WHITE);
         y += 28;
@@ -152,6 +196,7 @@ public final class ChannelManagerScreen extends Screen {
             disable(toggle, Component.translatable(active == null
                 ? "cipherchannels.disabled.no_channel" : "cipherchannels.disabled.not_ready"));
         }
+        if (!enabled && !ChatLogProtection.allowsEncryption()) disable(toggle, Component.translatable("cipherchannels.disabled.chat_logging"));
         y += 34;
 
         ChannelRecord bound = CipherChannels.channels().boundChannelFor(ClientContext.currentServer());
@@ -161,9 +206,11 @@ public final class ChannelManagerScreen extends Screen {
         } else {
             Component next = switch (status.state()) {
                 case OFF -> Component.translatable("cipherchannels.overview.next.turn_on");
-                case READY -> Component.translatable("cipherchannels.overview.next.ready");
+                case READY -> active != null && active.verification() == VerificationState.UNVERIFIED
+                    ? Component.translatable("cipherchannels.overview.next.unverified") : Component.translatable("cipherchannels.overview.next.ready");
                 case NO_CHANNEL -> Component.translatable("cipherchannels.overview.next.import");
                 case SUSPENDED -> Component.translatable("cipherchannels.overview.next.suspended");
+                case CONFIG_LOCKED -> Component.translatable("cipherchannels.overview.next.config_locked");
             };
             addText(left, y, panelWidth, 3, next, status.state() == TransportState.READY ? ChatFormatting.GREEN : ChatFormatting.YELLOW);
         }
@@ -174,7 +221,7 @@ public final class ChannelManagerScreen extends Screen {
             initChannelForm(left, panelWidth, 132, false);
             return;
         }
-        int listBottom = Math.max(210, height - 100);
+        int listBottom = Math.max(168, height - 100);
         ChannelList list = addRenderableWidget(new ChannelList(minecraft, panelWidth,
             listBottom - 128, 128, 40, this::requestSwitch));
         list.setX(left);
@@ -212,16 +259,26 @@ public final class ChannelManagerScreen extends Screen {
             Component.translatable("cipherchannels.form.name.narration")));
         nameInput.setMaxLength(48);
         nameInput.setHint(Component.translatable("cipherchannels.form.name.hint"));
-        ChannelRecord active = CipherChannels.channels().config().activeChannel();
-        nameInput.setValue(form == Form.RENAME && active != null ? active.name() : "Friends");
+        nameInput.setValue(nameDraft);
+        nameInput.setResponder(value -> { nameDraft = value; updateFormValidation(); });
         y += 30;
         if (form == Form.JOIN) {
             addText(left, y, panelWidth, 1, Component.translatable("cipherchannels.form.invite.label"), ChatFormatting.GRAY);
             y += 14;
-            inviteInput = addRenderableWidget(new EditBox(font, left, y, panelWidth, 20,
+            int fieldWidth = panelWidth - 108;
+            inviteInput = addRenderableWidget(new EditBox(font, left, y, fieldWidth, 20,
                 Component.translatable("cipherchannels.form.invite.narration")));
             inviteInput.setMaxLength(96);
             inviteInput.setHint(Component.translatable("cipherchannels.form.invite.hint"));
+            inviteInput.setValue(inviteDraft);
+            inviteInput.setResponder(value -> { inviteDraft = value; updateFormValidation(); });
+            maskInviteInput();
+            addRenderableWidget(Button.builder(Component.translatable(revealInvite
+                ? "cipherchannels.form.invite.hide" : "cipherchannels.form.invite.reveal"), ignored -> toggleInviteReveal())
+                .bounds(left + fieldWidth + 4, y, 50, 20).build());
+            addRenderableWidget(Button.builder(Component.translatable("cipherchannels.form.invite.paste"), ignored -> {
+                inviteInput.setValue(minecraft.keyboardHandler.getClipboard()); inviteInput.setFocused(true);
+            }).bounds(left + fieldWidth + 58, y, 50, 20).build());
             y += 30;
         }
         int half = (panelWidth - 8) / 2;
@@ -231,8 +288,7 @@ public final class ChannelManagerScreen extends Screen {
             case RENAME -> "cipherchannels.form.rename.submit";
             case NONE -> throw new IllegalStateException("No form selected");
         });
-        addRenderableWidget(Button.builder(submitLabel, ignored -> submitForm())
-            .bounds(left, y, half, 22).build());
+        submitButton = addRenderableWidget(Button.builder(submitLabel, ignored -> submitForm()).bounds(left, y, half, 22).build());
         addRenderableWidget(Button.builder(Component.translatable("gui.cancel"), ignored -> {
             form = Form.NONE;
             if (!onboarding) {
@@ -240,24 +296,37 @@ public final class ChannelManagerScreen extends Screen {
             }
             rebuildWidgets();
         }).bounds(left + half + 8, y, half, 22).build());
+        updateFormValidation();
     }
 
     private void initShare(int left, int panelWidth, ChannelConfig config) {
         ChannelRecord active = config.activeChannel();
         if (active == null) {
             addText(left, 134, panelWidth, 3, Component.translatable("cipherchannels.share.no_channel"), ChatFormatting.YELLOW);
+            if (ClientContext.oldChatLogsPresent()) addRenderableWidget(Button.builder(
+                Component.translatable("cipherchannels.share.open_old_logs"), ignored -> ClientContext.openChatLogs())
+                .bounds(left, 184, panelWidth, 22).build());
             return;
         }
-        int y = 134;
+        int y = 128;
+        addText(left, y, panelWidth, 1, Component.translatable("cipherchannels.share.section.verify"), ChatFormatting.AQUA);
+        y += 18;
         addText(left, y, panelWidth, 1, Component.translatable("cipherchannels.share.channel", active.name()), ChatFormatting.WHITE);
         y += 20;
         addText(left, y, panelWidth, 2, Component.translatable("cipherchannels.share.fingerprint", active.fingerprint()), ChatFormatting.AQUA);
         y += 30;
+        Button verify = addRenderableWidget(Button.builder(verificationAction(active), ignored -> confirmVerification(active)).bounds(left, y, panelWidth, 22).build());
+        if (active.verification() == VerificationState.LOCAL_CREATED) disable(verify, Component.translatable("cipherchannels.disabled.locally_created"));
+        y += 30;
+        addText(left, y, panelWidth, 1, Component.translatable("cipherchannels.share.section.invite"), ChatFormatting.AQUA);
+        y += 18;
         addRenderableWidget(Button.builder(Component.translatable("cipherchannels.share.copy_invite"),
             ignored -> confirmCopyInvite(active)).tooltip(Tooltip.create(
                 Component.translatable("cipherchannels.share.copy_warning"))).bounds(left, y, panelWidth, 22).build());
         y += 32;
 
+        addText(left, y, panelWidth, 1, Component.translatable("cipherchannels.share.section.server"), ChatFormatting.AQUA);
+        y += 18;
         ServerBinding endpoint = ClientContext.currentServer();
         Button binding = addRenderableWidget(Button.builder(Component.translatable(active.binding() == null
                 ? "cipherchannels.share.bind" : "cipherchannels.share.unbind"), ignored -> toggleBinding(active))
@@ -282,10 +351,22 @@ public final class ChannelManagerScreen extends Screen {
         } else {
             ascii.active = false;
         }
+        y += 32;
+        addText(left, y, panelWidth, 1, Component.translatable("cipherchannels.share.section.compromise"), ChatFormatting.AQUA);
+        y += 18;
+        addRenderableWidget(Button.builder(Component.translatable("cipherchannels.share.replace"), ignored -> confirmReplace(active))
+            .tooltip(Tooltip.create(Component.translatable("cipherchannels.share.replace_help"))).bounds(left, y, panelWidth, 22).build());
+        if (ClientContext.oldChatLogsPresent()) addRenderableWidget(Button.builder(
+            Component.translatable("cipherchannels.share.open_old_logs"), ignored -> ClientContext.openChatLogs()).bounds(left, y + 28, panelWidth, 22).build());
     }
 
     private void beginForm(Form next) {
         form = next;
+        ChannelRecord active = CipherChannels.channels().config().activeChannel();
+        nameDraft = next == Form.RENAME && active != null ? active.name()
+            : Component.translatable("cipherchannels.form.name.default").getString();
+        inviteDraft = "";
+        revealInvite = false;
         rebuildWidgets();
     }
 
@@ -301,6 +382,7 @@ public final class ChannelManagerScreen extends Screen {
                 case JOIN -> {
                     ChannelRecord joined = CipherChannels.channels().importInvite(inviteInput.getValue(), nameInput.getValue());
                     inviteInput.setValue("");
+                    inviteDraft = "";
                     feedback = new UiFeedback(UiFeedback.Severity.SUCCESS,
                         Component.translatable("cipherchannels.feedback.joined", joined.name(), joined.fingerprint()));
                     tab = Tab.OVERVIEW;
@@ -319,7 +401,34 @@ public final class ChannelManagerScreen extends Screen {
         });
     }
 
+    private void maskInviteInput() {
+        inviteInput.addFormatter((text, offset) -> FormattedCharSequence.forward(
+            revealInvite ? text : "•".repeat(text.length()), Style.EMPTY));
+    }
+    private void toggleInviteReveal() { revealInvite = !revealInvite; rebuildWidgets(); if (inviteInput != null) inviteInput.setFocused(true); }
+    private void updateFormValidation() {
+        if (submitButton == null) return;
+        boolean valid = nameDraft != null && !nameDraft.trim().isEmpty();
+        Component explanation = Component.translatable("cipherchannels.form.validation.name");
+        if (valid && form == Form.JOIN) {
+            valid = validInvite();
+            explanation = Component.translatable(inviteDraft.startsWith("CC1.")
+                ? "cipherchannels.form.validation.legacy_invite" : "cipherchannels.form.validation.invite");
+        }
+        submitButton.active = valid;
+        submitButton.setTooltip(valid ? null : Tooltip.create(explanation));
+    }
+    private boolean validInvite() {
+        try (KeyMaterial key = InviteCode.parse(inviteDraft)) { return !key.isClosed(); }
+        catch (RuntimeException exception) { return false; }
+    }
+
     private void toggleEncryption() {
+        ChannelConfig config = CipherChannels.channels().config();
+        ChannelRecord active = config.activeChannel();
+        if (!config.encryptionEnabled() && active != null && CipherChannels.channels().requiresVerificationWarning(active.id())) {
+            confirmUnverified(active); return;
+        }
         runAction(() -> {
             boolean enabled = CipherChannels.channels().config().encryptionEnabled();
             CipherChannels.channels().setEnabled(!enabled, ClientContext.currentServer());
@@ -327,6 +436,15 @@ public final class ChannelManagerScreen extends Screen {
                 ? "cipherchannels.feedback.encryption_off" : "cipherchannels.feedback.encryption_on"), ChatFormatting.GREEN);
             rebuildWidgets();
         });
+    }
+    private void confirmUnverified(ChannelRecord active) {
+        minecraft.setScreen(new ConfirmScreen(accepted -> {
+            if (accepted) runAction(() -> { CipherChannels.channels().setEnabled(true, ClientContext.currentServer(), true);
+                setFeedback(Component.translatable("cipherchannels.feedback.encryption_unverified", active.name()), ChatFormatting.YELLOW); });
+            else setFeedback(Component.translatable("cipherchannels.feedback.unverified_cancelled"), ChatFormatting.GRAY);
+            minecraft.setScreen(this);
+        }, Component.translatable("cipherchannels.confirm.unverified.title"), Component.translatable("cipherchannels.confirm.unverified.message", active.name(), active.fingerprint()),
+            Component.translatable("cipherchannels.confirm.unverified.yes"), Component.translatable("gui.cancel")));
     }
 
     private void requestSwitch(ChannelRecord target) {
@@ -352,12 +470,40 @@ public final class ChannelManagerScreen extends Screen {
             rebuildWidgets();
         });
     }
+    private Component verificationAction(ChannelRecord active) {
+        return Component.translatable(switch (active.verification()) {
+            case LOCAL_CREATED -> "cipherchannels.share.locally_created";
+            case UNVERIFIED -> "cipherchannels.share.mark_verified";
+            case VERIFIED -> "cipherchannels.share.reset_verification";
+        });
+    }
+    private void confirmVerification(ChannelRecord active) {
+        boolean verify = active.verification() == VerificationState.UNVERIFIED;
+        if (active.verification() == VerificationState.LOCAL_CREATED) return;
+        minecraft.setScreen(new ConfirmScreen(accepted -> {
+            if (accepted) runAction(() -> {
+                if (verify) CipherChannels.channels().markVerified(active.id()); else CipherChannels.channels().markUnverified(active.id());
+                setFeedback(Component.translatable(verify ? "cipherchannels.feedback.verified" : "cipherchannels.feedback.verification_reset"), ChatFormatting.GREEN);
+            });
+            minecraft.setScreen(this);
+        }, Component.translatable(verify ? "cipherchannels.confirm.verify.title" : "cipherchannels.confirm.unverify.title"),
+            Component.translatable(verify ? "cipherchannels.confirm.verify.message" : "cipherchannels.confirm.unverify.message", active.fingerprint()),
+            Component.translatable(verify ? "cipherchannels.confirm.verify.yes" : "cipherchannels.confirm.unverify.yes"), Component.translatable("gui.cancel")));
+    }
+    private void confirmReplace(ChannelRecord active) {
+        minecraft.setScreen(new ConfirmScreen(accepted -> {
+            if (accepted) runAction(() -> { ChannelRecord replacement = CipherChannels.channels().replaceCompromised(active.id()); InviteClipboardGuard.clearMatching(active.id());
+                setFeedback(Component.translatable("cipherchannels.feedback.replaced", replacement.name(), replacement.fingerprint()), ChatFormatting.YELLOW); });
+            minecraft.setScreen(this);
+        }, Component.translatable("cipherchannels.confirm.replace.title"), Component.translatable("cipherchannels.confirm.replace.message", active.name()),
+            Component.translatable("cipherchannels.confirm.replace.yes"), Component.translatable("gui.cancel")));
+    }
 
     private void confirmCopyInvite(ChannelRecord active) {
         BooleanConsumer callback = accepted -> {
             if (accepted) {
                 runAction(() -> {
-                    minecraft.keyboardHandler.setClipboard(CipherChannels.channels().inviteFor(active.id()));
+                    InviteClipboardGuard.copy(active.id(), CipherChannels.channels().inviteFor(active.id()));
                     setFeedback(Component.translatable("cipherchannels.feedback.invite_copied"), ChatFormatting.YELLOW);
                 });
             } else {
@@ -383,6 +529,7 @@ public final class ChannelManagerScreen extends Screen {
             if (accepted) {
                 runAction(() -> {
                     CipherChannels.channels().forget(active.id());
+                    InviteClipboardGuard.clearMatching(active.id());
                     setFeedback(Component.translatable("cipherchannels.feedback.forgotten", active.name()), ChatFormatting.YELLOW);
                 });
             } else {
@@ -433,10 +580,28 @@ public final class ChannelManagerScreen extends Screen {
         }
         return Component.translatable("cipherchannels.overview.binding.bound", record.binding().displayName());
     }
+    private Component verificationLabel(ChannelRecord record) {
+        if (record == null) return Component.translatable("cipherchannels.channel.none");
+        return Component.translatable(switch (record.verification()) {
+            case LOCAL_CREATED -> "cipherchannels.verification.local_created";
+            case UNVERIFIED -> "cipherchannels.verification.unverified";
+            case VERIFIED -> "cipherchannels.verification.verified";
+        });
+    }
+    private Component loggingLabel() {
+        return Component.translatable(switch (ChatLogProtection.state()) {
+            case NOT_INSTALLED -> "cipherchannels.logging.vanilla";
+            case DISABLED -> "cipherchannels.logging.chatpatches_disabled";
+            case PROTECTED -> "cipherchannels.logging.protected";
+            case UNSAFE -> "cipherchannels.logging.unsafe";
+        });
+    }
 
     private void addText(int x, int y, int maxWidth, int maxRows, Component text, ChatFormatting color) {
-        addRenderableOnly(new MultiLineTextWidget(x, y, text.copy().withStyle(color), font)
-            .setMaxWidth(maxWidth).setMaxRows(maxRows));
+        MultiLineTextWidget widget = new MultiLineTextWidget(x, y, text.copy().withStyle(color), font)
+            .setMaxWidth(maxWidth).setMaxRows(maxRows);
+        addRenderableOnly(widget);
+        if (contentLayout) contentScroller.track(widget);
     }
 
     private static void disable(Button button, Component explanation) {
@@ -452,10 +617,8 @@ public final class ChannelManagerScreen extends Screen {
     }
 
     private void setError(RuntimeException exception) {
-        String message = exception.getMessage();
         setFeedback(Component.translatable("cipherchannels.feedback.failed",
-            message == null || message.isBlank()
-                ? Component.translatable("cipherchannels.feedback.failed_generic") : message), ChatFormatting.RED);
+            Component.translatable("cipherchannels.feedback.failed_generic")), ChatFormatting.RED);
     }
 
     private void runAction(Runnable action) {

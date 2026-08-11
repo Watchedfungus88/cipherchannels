@@ -19,7 +19,7 @@ class ConfigStoreTest {
     @TempDir Path temporaryDirectory;
 
     @Test
-    void writesVersionTwoAtomicallyKeepsBackupAndNeverStoresSecrets() throws Exception {
+    void writesVersionThreeAtomicallyKeepsBackupAndNeverStoresSecrets() throws Exception {
         ConfigStore store = new ConfigStore(temporaryDirectory);
         UUID id = UUID.randomUUID();
         ChannelRecord record = new ChannelRecord(id, "Friends", "0123-4567-89AB-CDEF", null);
@@ -31,7 +31,7 @@ class ConfigStoreTest {
 
         String stored = Files.readString(store.configFile());
         assertTrue(Files.isRegularFile(temporaryDirectory.resolve("cipherchannels.json.bak")));
-        assertTrue(stored.contains("\"version\":2"));
+        assertTrue(stored.contains("\"version\":3"));
         assertTrue(stored.contains("ASCII_COMPATIBILITY"));
         assertFalse(stored.contains("CC1."));
         assertFalse(stored.contains("plaintext"));
@@ -52,25 +52,43 @@ class ConfigStoreTest {
 
         LoadedConfig recovered = store.load();
         assertTrue(recovered.writable());
-        assertTrue(recovered.notice().contains("backup"));
+        assertEquals("cipherchannels.notice.config.recovered_backup", recovered.notice());
         assertEquals(original, recovered.config());
         assertTrue(Files.isRegularFile(store.configFile()));
     }
 
     @Test
-    void migratesDevelopmentVersionOneWithoutInventingTransportOverrides() throws Exception {
-        ConfigStore store = new ConfigStore(temporaryDirectory);
-        Files.createDirectories(store.configFile().getParent());
-        UUID id = UUID.randomUUID();
-        String versionOne = "{\"version\":1,\"encryptionEnabled\":true,\"activeChannelId\":\"" + id
-            + "\",\"channels\":[{\"id\":\"" + id + "\",\"name\":\"Friends\","
-            + "\"fingerprint\":\"0123-4567-89AB-CDEF\",\"binding\":null}]}";
-        Files.writeString(store.configFile(), versionOne);
+    void preservesEveryPreTwoDevelopmentConfigAndStartsFresh() throws Exception {
+        for (int version : new int[] {1, 2}) {
+            ConfigStore store = new ConfigStore(temporaryDirectory.resolve("v" + version));
+            Files.createDirectories(store.configFile().getParent());
+            UUID id = UUID.randomUUID();
+            String obsolete = "{\"version\":" + version + ",\"encryptionEnabled\":true,\"activeChannelId\":\"" + id
+                + "\",\"channels\":[{\"id\":\"" + id + "\",\"name\":\"Friends\","
+                + "\"fingerprint\":\"0123-4567-89AB-CDEF\",\"binding\":null}]}";
+            Files.writeString(store.configFile(), obsolete);
+            LoadedConfig reset = store.load();
+            assertEquals(ConfigLoadState.FIRST_RUN, reset.state());
+            assertFalse(reset.config().encryptionEnabled());
+            assertTrue(reset.config().channels().isEmpty());
+            try (var paths = Files.list(store.configFile().getParent())) {
+                assertTrue(paths.anyMatch(path -> path.getFileName().toString().contains(".pre-2.0-")));
+            }
+        }
+    }
 
-        LoadedConfig migrated = store.load();
-        assertEquals(ChannelConfig.CURRENT_VERSION, migrated.config().version());
-        assertTrue(migrated.config().encryptionEnabled());
-        assertTrue(migrated.config().transportOverrides().isEmpty());
+    @Test
+    void corruptPrimaryRecoversValidVersionThreeBackup() throws Exception {
+        ConfigStore store = new ConfigStore(temporaryDirectory.resolve("backup-recovery"));
+        ChannelConfig expected = ChannelConfig.empty().upsert(
+            new ChannelRecord(UUID.randomUUID(), "Friends", "0123-4567-89AB-CDEF", null), true);
+        store.save(expected);
+        store.save(expected.withEnabled(true));
+        Files.writeString(store.configFile(), "broken");
+        LoadedConfig recovered = store.load();
+        assertEquals(ConfigLoadState.RECOVERED, recovered.state());
+        assertEquals(expected, recovered.config());
+        assertTrue(recovered.writable());
     }
 
     @Test
@@ -79,17 +97,18 @@ class ConfigStoreTest {
         Files.createDirectories(corruptStore.configFile().getParent());
         Files.writeString(corruptStore.configFile(), "not JSON");
         LoadedConfig recovered = corruptStore.load();
-        assertTrue(recovered.writable());
+        assertFalse(recovered.writable());
+        assertEquals(ConfigLoadState.SAFE_MODE_CORRUPT, recovered.state());
         assertFalse(recovered.config().encryptionEnabled());
         assertTrue(recovered.config().channels().isEmpty());
-        assertTrue(recovered.notice().contains("preserved"));
+        assertEquals("cipherchannels.notice.config.corrupt", recovered.notice());
         try (var paths = Files.list(corruptStore.configFile().getParent())) {
             assertTrue(paths.anyMatch(path -> path.getFileName().toString().contains(".corrupt-")));
         }
 
         ConfigStore newerStore = new ConfigStore(temporaryDirectory.resolve("newer"));
         Files.createDirectories(newerStore.configFile().getParent());
-        String newer = "{\"version\":3,\"encryptionEnabled\":true,\"activeChannelId\":null,"
+        String newer = "{\"version\":4,\"encryptionEnabled\":true,\"activeChannelId\":null,"
             + "\"channels\":[],\"transportOverrides\":[]}";
         Files.writeString(newerStore.configFile(), newer);
         LoadedConfig readOnly = newerStore.load();

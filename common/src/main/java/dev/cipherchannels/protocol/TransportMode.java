@@ -1,24 +1,22 @@
 package dev.cipherchannels.protocol;
 
 public enum TransportMode {
-    HIGH_CAPACITY((byte) 0x01, 480, 443, "High capacity"),
-    ASCII_COMPATIBILITY((byte) 0x02, 192, 155, "Compatibility");
+    HIGH_CAPACITY((byte) 0x01, 480, 443),
+    ASCII_COMPATIBILITY((byte) 0x02, 192, 155);
 
     private static final int PUBLIC_OVERHEAD = 12 + 8 + 16 + 1;
 
     private final byte id;
     private final int binaryLength;
     private final int rawCapacity;
-    private final String displayName;
 
-    TransportMode(byte id, int binaryLength, int rawCapacity, String displayName) {
+    TransportMode(byte id, int binaryLength, int rawCapacity) {
         if (binaryLength - PUBLIC_OVERHEAD != rawCapacity) {
             throw new IllegalArgumentException("Transport capacity does not match frame layout");
         }
         this.id = id;
         this.binaryLength = binaryLength;
         this.rawCapacity = rawCapacity;
-        this.displayName = displayName;
     }
 
     public byte id() {
@@ -35,10 +33,6 @@ public enum TransportMode {
 
     public int rawCapacity() {
         return rawCapacity;
-    }
-
-    public String displayName() {
-        return displayName;
     }
 
     public boolean accepts(char value) {

@@ -27,9 +27,11 @@ final class ChannelSwitchScreen extends Screen {
             .setMaxWidth(panelWidth).setMaxRows(4).setCentered(true));
         Button keepOn = addRenderableWidget(Button.builder(Component.translatable("cipherchannels.switch.keep_on"),
             ignored -> complete(true)).bounds(left, 116, panelWidth, 22).build());
-        if (!CipherChannels.channels().canKeepEncryptionOn(target.id(), ClientContext.currentServer())) {
+        boolean unverified = CipherChannels.channels().requiresVerificationWarning(target.id());
+        if (unverified || !CipherChannels.channels().canKeepEncryptionOn(target.id(), ClientContext.currentServer())) {
             keepOn.active = false;
-            keepOn.setTooltip(Tooltip.create(Component.translatable("cipherchannels.disabled.not_ready")));
+            keepOn.setTooltip(Tooltip.create(Component.translatable(unverified
+                ? "cipherchannels.disabled.unverified_switch" : "cipherchannels.disabled.not_ready")));
         }
         addRenderableWidget(Button.builder(Component.translatable("cipherchannels.switch.turn_off"),
             ignored -> complete(false)).bounds(left, 146, panelWidth, 22).build());

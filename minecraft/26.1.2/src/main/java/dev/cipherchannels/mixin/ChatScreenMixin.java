@@ -1,6 +1,7 @@
 package dev.cipherchannels.mixin;
 
 import dev.cipherchannels.CipherChannels;
+import dev.cipherchannels.chat.ChatLogProtection;
 import dev.cipherchannels.channels.MessagePreflight;
 import dev.cipherchannels.ui.ChannelManagerScreen;
 import dev.cipherchannels.ui.ClientContext;
@@ -47,7 +48,7 @@ public abstract class ChatScreenMixin {
         cipherchannels$syncInputLimit();
         cipherchannels$draftStatus = ClientContext.draftStatus(input.getValue());
         cipherchannels$managerButton = Button.builder(ClientContext.entryButtonLabel(),
-            ignored -> Minecraft.getInstance().setScreen(new ChannelManagerScreen(screen)))
+            ignored -> Minecraft.getInstance().setScreen(ChannelManagerScreen.create(screen)))
             .bounds(screen.width - 152, screen.height - 46, 148, 20)
             .build();
         ((ScreenInvoker) screen).cipherchannels$addRenderableWidget(cipherchannels$managerButton);
@@ -79,7 +80,14 @@ public abstract class ChatScreenMixin {
             cipherchannels$draftStatus = new DraftStatus(reason, 0xFFFF5555, null);
             ClientContext.notice(reason);
             callback.cancel();
+        } else if (CipherChannels.channels().config().encryptionEnabled()) {
+            ChatLogProtection.prepareOutgoing(ClientContext.normalizeDraft(rawMessage));
         }
+    }
+
+    @Inject(method = "handleChatInput", at = @At("RETURN"))
+    private void cipherchannels$clearLoggingGuard(String rawMessage, boolean addToHistory, CallbackInfo callback) {
+        ChatLogProtection.clearOutgoing();
     }
 
     @Inject(method = "normalizeChatMessage", at = @At("HEAD"), cancellable = true)
@@ -124,6 +132,9 @@ public abstract class ChatScreenMixin {
             return normalized.length() > 256
                 ? Component.translatable("cipherchannels.block.command_limit") : null;
         }
+        if (!ChatLogProtection.allowsEncryption() && CipherChannels.channels().config().encryptionEnabled()) {
+            return Component.translatable("cipherchannels.block.chat_logging");
+        }
         MessagePreflight preflight = raw.equals(input.getValue()) && cipherchannels$draftStatus != null
             && cipherchannels$draftStatus.preflight() != null
             ? cipherchannels$draftStatus.preflight()
@@ -135,6 +146,7 @@ public abstract class ChatScreenMixin {
         if (preflight.ready()) {
             cipherchannels$preparedRaw = raw;
             cipherchannels$preparedNormalized = normalized;
+            ChatLogProtection.prepareOutgoing(normalized);
             return null;
         }
         return ClientContext.blockExplanation(preflight);

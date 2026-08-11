@@ -1,6 +1,8 @@
 package dev.cipherchannels.crypto;
 
 import java.util.Arrays;
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -13,7 +15,7 @@ class IdentityAndInviteTest {
     void inviteRoundTripsAndRejectsEveryChecksumMutation() {
         try (KeyMaterial original = ChannelKeys.generate()) {
             String invite = InviteCode.create(original);
-            assertTrue(invite.matches("CC1\\.[A-Za-z0-9_-]{43}\\.[0-9A-HJKMNP-TV-Z]{8}"));
+            assertTrue(invite.matches("CC2\\.[A-Za-z0-9_-]{43}\\.[0-9A-HJKMNP-TV-Z]{8}"));
             try (KeyMaterial parsed = InviteCode.parse(invite)) {
                 assertTrue(Arrays.equals(original.copyBytes(), parsed.copyBytes()));
             }
@@ -57,6 +59,25 @@ class IdentityAndInviteTest {
         } finally {
             Arrays.fill(zeros, (byte) 0);
         }
+    }
+
+    @Test
+    void rejectsVersionOneInvitesWithAnActionableMessage() {
+        IllegalArgumentException failure = assertThrows(IllegalArgumentException.class,
+            () -> InviteCode.parse("CC1." + "A".repeat(43) + ".00000000"));
+        assertTrue(failure.getMessage().contains("incompatible"));
+        assertTrue(failure.getMessage().contains("2.0"));
+
+        byte[] raw = new byte[KeyMaterial.LENGTH];
+        byte[] digest = ChannelIdentity.sha256(
+            "CipherChannels invite checksum v1\0".getBytes(StandardCharsets.UTF_8), raw);
+        byte[] checksumBytes = Arrays.copyOf(digest, 5);
+        String disguised = "CC2." + Base64.getUrlEncoder().withoutPadding().encodeToString(raw)
+            + '.' + CrockfordBase32.encode(checksumBytes);
+        assertThrows(IllegalArgumentException.class, () -> InviteCode.parse(disguised));
+        Arrays.fill(raw, (byte) 0);
+        Arrays.fill(digest, (byte) 0);
+        Arrays.fill(checksumBytes, (byte) 0);
     }
 
     private static String mutate(String source, int index) {
