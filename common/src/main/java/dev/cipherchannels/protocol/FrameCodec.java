@@ -20,15 +20,15 @@ public final class FrameCodec {
     public static final int WIRE_LENGTH = 256;
     public static final int MAX_SOURCE_BYTES = 4_096;
     public static final int RECOGNITION_HINT_LENGTH = 8;
-    public static final byte CONTROL_RAW_V1 = 0x10;
-    public static final byte CONTROL_DEFLATE_V1 = 0x11;
+    public static final byte CONTROL_RAW_V2 = 0x20;
+    public static final byte CONTROL_DEFLATE_V2 = 0x21;
 
     private static final int NONCE_OFFSET = 0;
     private static final int HINT_OFFSET = NONCE_OFFSET + AesGcm.NONCE_LENGTH;
     private static final int CIPHERTEXT_OFFSET = HINT_OFFSET + RECOGNITION_HINT_LENGTH;
     private static final byte[] RECOGNITION_DOMAIN =
-        "CipherChannels recognition v1\0".getBytes(StandardCharsets.UTF_8);
-    private static final byte[] FRAME_DOMAIN = "CipherChannels frame v1\0".getBytes(StandardCharsets.UTF_8);
+        "CipherChannels recognition v2\0".getBytes(StandardCharsets.UTF_8);
+    private static final byte[] FRAME_DOMAIN = "CipherChannels frame v2\0".getBytes(StandardCharsets.UTF_8);
 
     private FrameCodec() {}
 
@@ -64,7 +64,7 @@ public final class FrameCodec {
                 padded = new byte[transport.encryptedPlaintextLength()];
                 byte[] content = prepared.content();
                 System.arraycopy(content, 0, padded, 0, content.length);
-                padded[content.length] = prepared.preview().compressed() ? CONTROL_DEFLATE_V1 : CONTROL_RAW_V1;
+                padded[content.length] = prepared.preview().compressed() ? CONTROL_DEFLATE_V2 : CONTROL_RAW_V2;
                 aad = aad(transport, nonce, hint);
                 encrypted = AesGcm.encrypt(derived.encryption(), nonce, padded, aad);
             }
@@ -246,13 +246,13 @@ public final class FrameCodec {
         byte control = padded[controlIndex];
         byte[] content = Arrays.copyOf(padded, controlIndex);
         try {
-            if (control == CONTROL_RAW_V1) {
+            if (control == CONTROL_RAW_V2) {
                 if (content.length == 0 || content.length > MAX_SOURCE_BYTES) {
                     throw new IllegalArgumentException("Invalid raw message length");
                 }
                 return StrictUtf8.decode(content);
             }
-            if (control == CONTROL_DEFLATE_V1) {
+            if (control == CONTROL_DEFLATE_V2) {
                 byte[] inflated = inflate(content);
                 try {
                     return StrictUtf8.decode(inflated);

@@ -1,55 +1,61 @@
-# Security model
+# Security
 
-CipherChannels 1.0.0 provides shared-key confidentiality and authentication for complete Minecraft 1.21.1, 1.21.11, 26.1, 26.1.2, and 26.2 public-chat messages on Fabric and NeoForge. It is a client-only transport; it is not a private-message service, identity system, or anonymous network.
+CipherChannels 2.0 provides shared-secret confidentiality and authentication for complete public-chat messages. It is not an identity system, anonymous network, or full secure messenger.
 
-## Cryptographic construction
+## Construction
 
-New channels use 32 bytes from Java `SecureRandom` as a master key. HKDF-SHA-256 uses salt `CipherChannels key schedule v1\0` and distinct expansion-info domains for the AES-256-GCM key and HMAC-SHA-256 recognition key.
+Each channel begins with 32 random bytes from Java `SecureRandom`. HKDF-SHA-256 derives separate AES-256-GCM encryption and HMAC-SHA-256 recognition keys under v2-only domains. Every frame has a fresh random 96-bit nonce, a rotating authenticated 64-bit recognition hint, and a 128-bit GCM tag.
 
-Each message uses a fresh random 96-bit nonce and a 128-bit GCM authentication tag. A rotating 64-bit hint is the first eight bytes of HMAC over a recognition domain, transport ID, and nonce. The hint is authenticated as AAD and is compared in constant time before decryption. It is not a stable channel ID.
+The fixed encrypted record is content, an authenticated v2 control byte, then zero padding. Raw strict UTF-8 uses `0x20`; raw DEFLATE followed by strict UTF-8 uses `0x21`. Invalid controls, malformed UTF-8, truncated or trailing compressed data, and expansion beyond 4,096 bytes are rejected.
 
-The fixed encrypted record is `content || control || zero padding`. Authenticated control `0x10` selects raw strict UTF-8 and `0x11` selects raw DEFLATE plus strict UTF-8. Other controls, missing controls, invalid UTF-8, malformed/truncated/trailing compressed streams, and expansion beyond 4,096 bytes are rejected.
+Receivers try no more than 16 live keys, active first. Recognition hints are compared in constant time before AES-GCM. There is no stable public channel identifier. Markerless fixed-size traffic is still recognizable as encrypted-looking traffic.
 
-High-capacity frames contain 480 binary bytes encoded into exactly 256 Base32768 BMP characters. They guarantee 443 raw plaintext bytes. Compatibility frames contain 192 binary bytes encoded into exactly 256 unpadded Base64url characters and guarantee 155 raw bytes. Outgoing source text over 4,096 UTF-8 bytes is rejected even if it would compress.
+The complete construction and domains are in [PROTOCOL.md](PROTOCOL.md). Independent test vectors are in [audit/protocol-vectors-v2.json](audit/protocol-vectors-v2.json). These are audit materials, not a claim that an independent audit occurred.
 
-## Detection and authentication
+## Fail-closed behavior
 
-A candidate must be one complete, maximal 256-character run using exactly one supported alphabet. The run may be surrounded by delimiter-separated text in the same literal component so timestamps, channel labels, player names, and other chat formatting do not hide an intact frame. Scans are capped at 4,096 characters, and a literal containing more than one candidate is left untouched. No public `CC1` marker or delimiter is present in the frame itself. At most 16 live keys are tried, active first. A hint miss is only `Encrypted-looking — no matching key`; it is not proof that the text came from CipherChannels. A hint match followed by GCM failure is reported as damaged or altered. No unauthenticated bytes are ever interpreted as plaintext.
+Enabled encryption never falls back to plaintext. Missing keys, strict-binding mismatches, unsafe configuration, known-unprotected chat logging, malformed drafts, capacity failures, and encryption errors block the send and preserve the draft.
 
-Because detection is markerless, arbitrary delimiter-bounded 256-character Base64url or Base32768 runs can receive the cautious unknown-key badge. Conversely, replacing, splitting, or editing the blob so it no longer matches the exact candidate rules makes it ordinary visible text. Fixed length and unusual alphabets also reveal that traffic is encrypted-looking even though channels have no stable public identifier.
+Configuration schema v3 stores no secrets. Version 1 or 2 settings are preserved as timestamped `.pre-2.0` files and replaced with an empty disabled v3 configuration. A corrupt primary tries a valid backup first. Corrupt v3 settings and unsupported newer settings enter safe mode and block public chat until recovery or explicit reset. Newer files are not modified.
 
-## Storage and recovery
+Resetting unsafe settings is intentionally explicit because it permits plaintext mode again.
 
-Version-2 settings contain only enabled intent, active channel UUID, local names, fingerprints, strict bindings, and per-endpoint ASCII overrides. They never contain raw keys, invites, plaintext, ciphertext, or compression state. Version-1 development settings migrate with high capacity as the default.
+## Replay protection
 
-Writes use a temporary file in the same directory, forced file contents, atomic replacement when supported, and a `.bak` copy. If the primary is missing, a valid backup can be recovered. A corrupt primary is moved to a timestamped `.corrupt-*` copy and a disabled empty state starts. A newer unsupported configuration is left untouched and opened read-only.
+Only authenticated frames enter the replay cache. Entries contain channel fingerprint, SHA-256 frame digest, and timestamp. Up to 4,096 entries survive normal restarts for six hours in `cipherchannels-replay.json` using a single background writer, forced same-directory atomic replacement, and backup recovery.
 
-Keys are session-only and best-effort wiped when replaced, forgotten, or the service closes. There can be 64 metadata records, 16 live keys, and 64 ASCII endpoint overrides. Forgetting removes metadata, its live key, and matching replay entries.
+If persistence fails, protection continues for the current session and the UI warns that restart protection is unavailable. Corrupt replay data is preserved and reset with a warning. Restoring an old filesystem backup can roll replay state backward, and messages older than six hours may be replayed.
 
-## Replay, signing, and logging
+## Keys, invites, and authorship
 
-Only successfully authenticated frames enter the replay cache. Its key is the local channel fingerprint plus SHA-256 of transport ID and the complete binary record. It retains 4,096 entries for six hours. A duplicate withholds plaintext. This cache is process-local and resets on restart.
+The `CC2` invite contains the channel master key. Raw keys are session-only and are best-effort wiped when forgotten, replaced, or Minecraft closes. Persistent configuration and replay storage never contain keys, invites, plaintext, or ciphertext.
 
-Outgoing replacement happens before `SignedMessageBody` is constructed, and the identical prepared ciphertext is used in `ServerboundChatPacket`; Minecraft signs ciphertext, never plaintext. Incoming transformation happens only when adding the already-filtered and trust-evaluated message to the chat display. Existing styles, siblings, click events, hover events, signatures, and message tags remain attached.
+Created channels are Local. Imported channels are Unverified until the user confirms that the complete fingerprint was compared through another trusted route. A session-only override can enable an unverified channel without falsely marking it Verified.
 
-Minecraft's ordinary text logger is suppressed for transformed display text so it does not write decrypted plaintext. Minecraft's reporting data retains the signed original ciphertext. CipherChannels code does not log keys, invites, drafts, plaintext, decrypted output, or raw frames.
+Everyone with an invite can read and create valid messages. `[CC]` authenticates shared-key possession, not a person. There is no forward secrecy: someone who records frames and later obtains the invite may decrypt the recorded messages. Removing a person from a group is not supported.
 
-## Server binding and fail-closed behavior
+For suspected compromise, replace the channel, distribute the new invite out of band, and stop using the old one. CipherChannels never sends a replacement through the compromised channel.
 
-Binding compares the normalized saved multiplayer host and port. If enabled intent is active but the key is missing or the binding does not match, public-chat sending is blocked. There is no plaintext fallback and no hidden channel switch. Integrated singleplayer still encrypts; it simply cannot be bound.
+## Clipboard and logs
 
-Slash commands are outside the encrypted transport and always remain plaintext. CipherChannels warns for every command while encrypted intent is enabled.
+Invite input is masked by default. After copying, CipherChannels retains only an in-memory digest. A matching invite is cleared when its channel is forgotten or replaced, or on normal shutdown. Unrelated clipboard contents are never erased.
 
-## Threat model and limitations
+Vanilla logging of transformed chat text is suppressed. With a compatible Chat Patches logger enabled, sent and incoming encrypted history is replaced with:
 
-Everyone holding an invite has the same master key and can both read and create valid channel messages. `[CC]` means shared-key authentication, not proof of an individual author.
+```text
+[CipherChannels encrypted message intentionally not stored]
+```
 
-The server learns normal player/account/network metadata, timing, ordering, fixed ciphertext length, and transport alphabet. It can block, delay, reorder, delete, replace, replay after restart, or otherwise interfere with delivery. It cannot read or forge authenticated CipherChannels plaintext without a channel key.
+Neither plaintext nor the raw frame is intentionally persisted. Compatibility hooks are checked at startup. A detected, enabled Chat Patches logger that cannot be protected blocks encrypted sending and pauses incoming decryption. Old `logs/chatlog*.json` files may contain pre-2.0 plaintext; the UI can open the folder but never deletes files.
 
-There is no anonymity, forward secrecy, post-compromise security, malicious-client resistance, compromised-device resistance, traffic-flow hiding, server-plugin compatibility guarantee, or slash-command encryption. Unicode-clean relays are required for high-capacity mode; server plugins that normalize, split, decorate, truncate, or reject chat may damage detection. Compatibility mode handles Unicode rejection but has lower raw capacity.
+Unknown or malicious client mods can inspect Minecraft memory before CipherChannels can sanitize it. The operating system, screen recorders, accessibility tools, servers, other players, and compromised devices remain outside this boundary.
 
-## Key-compromise response
+## Metadata and transport limits
 
-Create a new channel, distribute the new invite through a separate trusted route, compare the new fingerprint, and forget the old channel. Never send the replacement invite through a channel whose key may already be compromised.
+The server sees the account, network metadata, timing, ordering, destination, fixed ciphertext size, and transport alphabet. It can block, delay, reorder, delete, replace, normalize, truncate, or replay delivery. Without the invite it cannot read or forge accepted plaintext.
 
-Do not publish keys, invites, plaintext, or raw frames in a public bug report. Use [GitHub private vulnerability reporting](https://github.com/Watchedfungus88/cipherchannels/security/advisories/new) for sensitive security reports and reproduction data.
+High Capacity requires an unchanged Unicode relay. Compatibility mode handles Unicode rejection but has lower capacity. Slash commands are plaintext. CipherChannels does not provide traffic-flow hiding, anonymity, forward secrecy, post-compromise security, individual authorship, malicious-client resistance, or guaranteed compatibility with chat-rewriting plugins.
+
+## Reporting vulnerabilities
+
+Never paste an invite, plaintext, or raw frame in a public issue. Use [GitHub private vulnerability reporting](https://github.com/watchedfungus88/CipherChannels/security/advisories/new) for sensitive reports. Replace all real secrets in logs and reproduction steps.

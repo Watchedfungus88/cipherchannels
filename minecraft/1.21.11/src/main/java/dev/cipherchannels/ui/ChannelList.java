@@ -8,8 +8,10 @@ import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.ObjectSelectionList;
 import net.minecraft.client.input.MouseButtonEvent;
+import net.minecraft.client.input.KeyEvent;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.FormattedCharSequence;
+import org.lwjgl.glfw.GLFW;
 
 final class ChannelList extends ObjectSelectionList<ChannelList.ChannelEntry> {
     private final Font font;
@@ -68,6 +70,8 @@ final class ChannelList extends ObjectSelectionList<ChannelList.ChannelEntry> {
             Component name = Component.literal(active ? "✓ " + record.name() : record.name());
             Component status = Component.translatable(ready
                 ? "cipherchannels.channels.row.ready" : "cipherchannels.channels.row.key_needed");
+            status = status.copy().append(Component.translatable("cipherchannels.channels.row.verification",
+                Component.translatable("cipherchannels.verification." + record.verification().name().toLowerCase())));
             if (record.binding() != null) {
                 status = status.copy().append(Component.translatable("cipherchannels.channels.row.bound",
                     record.binding().displayName()));
@@ -88,6 +92,14 @@ final class ChannelList extends ObjectSelectionList<ChannelList.ChannelEntry> {
         }
 
         @Override
+        public boolean keyPressed(KeyEvent event) {
+            if (event.key() != GLFW.GLFW_KEY_ENTER && event.key() != GLFW.GLFW_KEY_KP_ENTER
+                && event.key() != GLFW.GLFW_KEY_SPACE) return false;
+            select.accept(record);
+            return true;
+        }
+
+        @Override
         public Component getNarration() {
             boolean active = record.id().equals(CipherChannels.channels().config().activeChannelId());
             return Component.translatable("cipherchannels.channels.row.narration", record.name(),
@@ -95,7 +107,10 @@ final class ChannelList extends ObjectSelectionList<ChannelList.ChannelEntry> {
                     : Component.translatable("cipherchannels.value.inactive"),
                 CipherChannels.channels().hasSessionKey(record.id())
                     ? Component.translatable("cipherchannels.value.ready")
-                    : Component.translatable("cipherchannels.value.key_needed"));
+                    : Component.translatable("cipherchannels.value.key_needed"),
+                Component.translatable("cipherchannels.verification." + record.verification().name().toLowerCase()),
+                record.binding() == null ? Component.translatable("cipherchannels.overview.binding.unbound")
+                    : Component.translatable("cipherchannels.overview.binding.bound", record.binding().displayName()));
         }
     }
 

@@ -1,12 +1,7 @@
-plugins {
-    id("net.fabricmc.fabric-loom")
-}
+plugins { id("net.fabricmc.fabric-loom") }
 
-version = "1.0.0+fabric.26.2"
-
-base {
-    archivesName = "cipherchannels"
-}
+val minecraftVersion = name.substringAfter('-')
+version = "${rootProject.version}+fabric.$minecraftVersion"
 
 repositories {
     mavenCentral()
@@ -16,58 +11,18 @@ repositories {
     }
 }
 
-sourceSets {
-    main {
-        java.srcDir(rootProject.file("minecraft/26.2/src/main/java"))
-    }
-    test {
-        java.srcDir(rootProject.file("minecraft/26.2/src/test/java"))
-    }
-}
-
-loom {
-    mods {
-        create("cipherchannels") {
-            sourceSet(sourceSets.main.get())
-        }
-    }
-}
+loom { mods { create("cipherchannels") { sourceSet(sourceSets.main.get()) } } }
 
 dependencies {
-    implementation(project(":common"))
-    minecraft("com.mojang:minecraft:26.2")
-    implementation("net.fabricmc:fabric-loader:0.19.3")
-    implementation("net.fabricmc.fabric-api:fabric-api:0.156.0+26.2")
-    compileOnly("maven.modrinth:modmenu:20.0.1")
-    testImplementation(platform("org.junit:junit-bom:5.11.4"))
-    testImplementation("org.junit.jupiter:junit-jupiter")
-    testRuntimeOnly("org.junit.platform:junit-platform-launcher:1.11.4")
+    minecraft("com.mojang:minecraft:$minecraftVersion")
+    implementation(libs.fabric.loader)
+    implementation(libs.fabric.api.mc262)
+    compileOnly(libs.modmenu.mc262)
 }
 
 tasks.processResources {
-    val values = mapOf("version" to "1.0.0", "minecraft_version" to "26.2",
-        "java_version" to "25", "loader_version" to "0.19.3")
+    val values = mapOf("version" to rootProject.version.toString(), "minecraft_version" to minecraftVersion,
+        "java_version" to "25", "loader_version" to libs.versions.fabric.loader.get())
     inputs.properties(values)
     filesMatching("fabric.mod.json") { expand(values) }
-}
-
-tasks.withType<JavaCompile>().configureEach {
-    options.encoding = "UTF-8"
-    options.release = 25
-    options.compilerArgs.add("-Xlint:all")
-}
-
-tasks.test {
-    useJUnitPlatform()
-}
-
-tasks.jar {
-    from(project(":common").extensions.getByType<SourceSetContainer>()["main"].output)
-    from(rootProject.file("LICENSE"))
-    from(rootProject.file("THIRD_PARTY_NOTICES.md"))
-}
-
-java {
-    toolchain.languageVersion = JavaLanguageVersion.of(25)
-    withSourcesJar()
 }

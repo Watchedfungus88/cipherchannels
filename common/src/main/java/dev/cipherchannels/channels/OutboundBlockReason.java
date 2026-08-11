@@ -2,6 +2,7 @@ package dev.cipherchannels.channels;
 
 public enum OutboundBlockReason {
     NONE,
+    CONFIG_LOCKED,
     NO_CHANNEL,
     BINDING_MISMATCH,
     EMPTY,

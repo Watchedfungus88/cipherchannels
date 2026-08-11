@@ -7,9 +7,9 @@ import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 
 public final class HkdfSha256 {
-    private static final byte[] SALT = "CipherChannels key schedule v1\0".getBytes(StandardCharsets.UTF_8);
-    private static final byte[] ENCRYPTION_INFO = "CipherChannels AES-256-GCM key v1\0".getBytes(StandardCharsets.UTF_8);
-    private static final byte[] RECOGNITION_INFO = "CipherChannels recognition key v1\0".getBytes(StandardCharsets.UTF_8);
+    private static final byte[] SALT = "CipherChannels key schedule v2\0".getBytes(StandardCharsets.UTF_8);
+    private static final byte[] ENCRYPTION_INFO = "CipherChannels encryption key v2\0".getBytes(StandardCharsets.UTF_8);
+    private static final byte[] RECOGNITION_INFO = "CipherChannels recognition key v2\0".getBytes(StandardCharsets.UTF_8);
 
     private HkdfSha256() {}
 

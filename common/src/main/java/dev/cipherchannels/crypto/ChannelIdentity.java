@@ -6,7 +6,7 @@ import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
 
 public final class ChannelIdentity {
-    private static final byte[] FINGERPRINT_DOMAIN = "CipherChannels fingerprint v1\0".getBytes(StandardCharsets.UTF_8);
+    private static final byte[] FINGERPRINT_DOMAIN = "CipherChannels fingerprint v2\0".getBytes(StandardCharsets.UTF_8);
 
     private ChannelIdentity() {}
 

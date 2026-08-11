@@ -1,0 +1,41 @@
+name: Bug report
+description: Report a reproducible CipherChannels problem
+title: "[Bug] "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: Never paste a channel invite, plaintext message, or raw encrypted frame here. Replace them with safe placeholders.
+  - type: dropdown
+    id: loader
+    attributes:
+      label: Loader
+      options: [Fabric, NeoForge]
+    validations:
+      required: true
+  - type: input
+    id: minecraft
+    attributes:
+      label: Minecraft version
+      placeholder: 1.21.1
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: Include safe reproduction steps and remove secrets from logs.
+    validations:
+      required: true
+  - type: textarea
+    id: mods
+    attributes:
+      label: Other client mods
+      description: List chat, logging, and UI mods and their versions.
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Secret check
+      options:
+        - label: I removed invites, plaintext, and raw frames from everything attached.
+          required: true

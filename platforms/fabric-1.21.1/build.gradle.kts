@@ -1,12 +1,7 @@
-plugins {
-    id("net.fabricmc.fabric-loom-remap")
-}
+plugins { id("net.fabricmc.fabric-loom-remap") }
 
-version = "1.0.0+fabric.1.21.1"
-
-base {
-    archivesName = "cipherchannels"
-}
+val minecraftVersion = name.substringAfter('-')
+version = "${rootProject.version}+fabric.$minecraftVersion"
 
 repositories {
     mavenCentral()
@@ -16,51 +11,19 @@ repositories {
     }
 }
 
-sourceSets {
-    main { java.srcDir(rootProject.file("minecraft/1.21.1/src/main/java")) }
-    test { java.srcDir(rootProject.file("minecraft/1.21.1/src/test/java")) }
-}
-
-loom {
-    mods {
-        create("cipherchannels") { sourceSet(sourceSets.main.get()) }
-    }
-}
+loom { mods { create("cipherchannels") { sourceSet(sourceSets.main.get()) } } }
 
 dependencies {
-    implementation(project(":common"))
-    minecraft("com.mojang:minecraft:1.21.1")
+    minecraft("com.mojang:minecraft:$minecraftVersion")
     mappings(loom.officialMojangMappings())
-    add("modImplementation", "net.fabricmc:fabric-loader:0.19.3")
-    add("modImplementation", "net.fabricmc.fabric-api:fabric-api:0.116.15+1.21.1")
-    add("modCompileOnly", "maven.modrinth:modmenu:11.0.4")
-    testImplementation(platform("org.junit:junit-bom:5.11.4"))
-    testImplementation("org.junit.jupiter:junit-jupiter")
-    testRuntimeOnly("org.junit.platform:junit-platform-launcher:1.11.4")
+    add("modImplementation", libs.fabric.loader)
+    add("modImplementation", libs.fabric.api.mc1211)
+    add("modCompileOnly", libs.modmenu.mc1211)
 }
 
 tasks.processResources {
-    val values = mapOf("version" to "1.0.0", "minecraft_version" to "1.21.1",
-        "java_version" to "21", "loader_version" to "0.19.3")
+    val values = mapOf("version" to rootProject.version.toString(), "minecraft_version" to minecraftVersion,
+        "java_version" to "21", "loader_version" to libs.versions.fabric.loader.get())
     inputs.properties(values)
     filesMatching("fabric.mod.json") { expand(values) }
-}
-
-tasks.withType<JavaCompile>().configureEach {
-    options.encoding = "UTF-8"
-    options.release = 21
-    options.compilerArgs.add("-Xlint:all")
-}
-
-tasks.test { useJUnitPlatform() }
-
-tasks.jar {
-    from(project(":common").extensions.getByType<SourceSetContainer>()["main"].output)
-    from(rootProject.file("LICENSE"))
-    from(rootProject.file("THIRD_PARTY_NOTICES.md"))
-}
-
-java {
-    toolchain.languageVersion = JavaLanguageVersion.of(21)
-    withSourcesJar()
 }

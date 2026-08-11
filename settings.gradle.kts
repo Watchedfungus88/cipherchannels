@@ -4,10 +4,11 @@ pluginManagement {
         maven("https://maven.fabricmc.net/")
         maven("https://maven.neoforged.net/releases")
     }
+    plugins { id("org.gradle.toolchains.foojay-resolver-convention") version "1.0.0" }
 }
 
 plugins {
-    id("org.gradle.toolchains.foojay-resolver-convention") version "1.0.0"
+    id("org.gradle.toolchains.foojay-resolver-convention")
 }
 
 rootProject.name = "CipherChannels"

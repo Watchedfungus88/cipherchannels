@@ -1,0 +1,44 @@
+[versions]
+loom = "1.17.18"
+neoforge-moddev = "2.0.143"
+gson = "2.14.0"
+junit = "5.11.4"
+junit-platform = "1.11.4"
+fabric-loader = "0.19.3"
+fabric-api-mc1211 = "0.116.15+1.21.1"
+fabric-api-mc12111 = "0.141.6+1.21.11"
+fabric-api-mc261 = "0.145.1+26.1"
+fabric-api-mc2612 = "0.155.2+26.1.2"
+fabric-api-mc262 = "0.156.0+26.2"
+modmenu-mc1211 = "11.0.4"
+modmenu-mc12111 = "17.0.1-beta.1"
+modmenu-mc261 = "18.0.0"
+modmenu-mc2612 = "18.0.0"
+modmenu-mc262 = "20.0.1"
+neoforge-mc1211 = "21.1.248"
+neoforge-mc12111 = "21.11.45"
+neoforge-mc261 = "26.1.0.19-beta"
+neoforge-mc2612 = "26.1.2.94"
+neoforge-mc262 = "26.2.0.53-beta"
+
+[plugins]
+fabric-loom = { id = "net.fabricmc.fabric-loom", version.ref = "loom" }
+fabric-loom-remap = { id = "net.fabricmc.fabric-loom-remap", version.ref = "loom" }
+neoforge-moddev = { id = "net.neoforged.moddev", version.ref = "neoforge-moddev" }
+
+[libraries]
+gson = { module = "com.google.code.gson:gson", version.ref = "gson" }
+junit-bom = { module = "org.junit:junit-bom", version.ref = "junit" }
+junit-jupiter = { module = "org.junit.jupiter:junit-jupiter" }
+junit-launcher = { module = "org.junit.platform:junit-platform-launcher", version.ref = "junit-platform" }
+fabric-loader = { module = "net.fabricmc:fabric-loader", version.ref = "fabric-loader" }
+fabric-api-mc1211 = { module = "net.fabricmc.fabric-api:fabric-api", version.ref = "fabric-api-mc1211" }
+fabric-api-mc12111 = { module = "net.fabricmc.fabric-api:fabric-api", version.ref = "fabric-api-mc12111" }
+fabric-api-mc261 = { module = "net.fabricmc.fabric-api:fabric-api", version.ref = "fabric-api-mc261" }
+fabric-api-mc2612 = { module = "net.fabricmc.fabric-api:fabric-api", version.ref = "fabric-api-mc2612" }
+fabric-api-mc262 = { module = "net.fabricmc.fabric-api:fabric-api", version.ref = "fabric-api-mc262" }
+modmenu-mc1211 = { module = "maven.modrinth:modmenu", version.ref = "modmenu-mc1211" }
+modmenu-mc12111 = { module = "maven.modrinth:modmenu", version.ref = "modmenu-mc12111" }
+modmenu-mc261 = { module = "maven.modrinth:modmenu", version.ref = "modmenu-mc261" }
+modmenu-mc2612 = { module = "maven.modrinth:modmenu", version.ref = "modmenu-mc2612" }
+modmenu-mc262 = { module = "maven.modrinth:modmenu", version.ref = "modmenu-mc262" }

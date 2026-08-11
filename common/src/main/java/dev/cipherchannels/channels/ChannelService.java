@@ -10,22 +10,29 @@ import dev.cipherchannels.protocol.FramePreview;
 import dev.cipherchannels.protocol.ParsedFrame;
 import dev.cipherchannels.protocol.TransportMode;
 import dev.cipherchannels.storage.ConfigStore;
+import dev.cipherchannels.storage.ConfigLoadState;
 import dev.cipherchannels.storage.LoadedConfig;
+import dev.cipherchannels.storage.ReplayStore;
 import java.time.Clock;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.UUID;
 
 public final class ChannelService implements AutoCloseable {
     private final ConfigStore configStore;
     private final SessionKeyStore keys = new SessionKeyStore();
+    private final Set<UUID> unverifiedSessionAllowances = new HashSet<>();
     private final ReplayCache replayCache;
     private ChannelConfig config;
     private boolean writable;
-    private String startupNotice;
+    private ConfigLoadState loadState;
+    private final List<String> startupNotices = new ArrayList<>();
 
     public ChannelService(ConfigStore configStore) {
         this(configStore, Clock.systemUTC());
@@ -33,17 +40,18 @@ public final class ChannelService implements AutoCloseable {
 
     public ChannelService(ConfigStore configStore, Clock clock) {
         this.configStore = Objects.requireNonNull(configStore, "configStore");
-        this.replayCache = new ReplayCache(clock);
+        this.replayCache = new ReplayCache(clock, new ReplayStore(configStore.configDirectory()));
         LoadedConfig loaded = configStore.load();
         this.config = loaded.config();
         this.writable = loaded.writable();
-        this.startupNotice = loaded.notice();
+        this.loadState = loaded.state();
+        if (!loaded.notice().isEmpty()) startupNotices.add(loaded.notice());
+        String replayNotice = replayCache.takePersistenceNotice();
+        if (!replayNotice.isEmpty()) startupNotices.add(replayNotice);
     }
 
     public synchronized String takeStartupNotice() {
-        String result = startupNotice;
-        startupNotice = "";
-        return result;
+        return startupNotices.isEmpty() ? replayCache.takePersistenceNotice() : startupNotices.removeFirst();
     }
 
     public synchronized ChannelConfig config() {
@@ -52,6 +60,22 @@ public final class ChannelService implements AutoCloseable {
 
     public synchronized boolean writable() {
         return writable;
+    }
+
+    public synchronized ConfigLoadState loadState() {
+        return loadState;
+    }
+
+    public synchronized void acknowledgeRecovery() {
+        if (loadState == ConfigLoadState.RECOVERED) loadState = ConfigLoadState.NORMAL;
+    }
+
+    public synchronized boolean replayPersistenceHealthy() {
+        return replayCache.persistenceHealthy();
+    }
+
+    public Path configDirectory() {
+        return configStore.configDirectory();
     }
 
     public synchronized boolean hasSessionKey(UUID id) {
@@ -64,7 +88,8 @@ public final class ChannelService implements AutoCloseable {
         try {
             requireWritable();
             ensureKeyCapacity(id);
-            ChannelRecord record = new ChannelRecord(id, localName, ChannelIdentity.fingerprint(key), null);
+            ChannelRecord record = new ChannelRecord(id, localName, ChannelIdentity.fingerprint(key), null,
+                VerificationState.LOCAL_CREATED);
             persist(config.upsert(record, true).withEnabled(false));
             keys.put(id, key);
             key = null;
@@ -85,7 +110,7 @@ public final class ChannelService implements AutoCloseable {
                 .filter(record -> record.fingerprint().equals(fingerprint))
                 .findFirst().orElse(null);
             ChannelRecord record = existing == null
-                ? new ChannelRecord(UUID.randomUUID(), requestedName, fingerprint, null)
+                ? new ChannelRecord(UUID.randomUUID(), requestedName, fingerprint, null, VerificationState.UNVERIFIED)
                 : existing;
             ensureKeyCapacity(record.id());
             persist(config.upsert(record, true).withEnabled(false));
@@ -108,10 +133,27 @@ public final class ChannelService implements AutoCloseable {
     }
 
     public synchronized void setEnabled(boolean enabled, ServerBinding currentServer) {
+        setEnabled(enabled, currentServer, false);
+    }
+
+    public synchronized void setEnabled(boolean enabled, ServerBinding currentServer, boolean allowUnverified) {
         if (enabled) {
             requireReadyFor(config.activeChannelId(), currentServer);
+            ChannelRecord active = requireRecord(config.activeChannelId());
+            boolean unverified = active.verification() == VerificationState.UNVERIFIED;
+            if (unverified && !allowUnverified && !unverifiedSessionAllowances.contains(active.id())) {
+                throw new IllegalStateException("Confirm this unverified channel before enabling it for this session");
+            }
+            if (unverified && allowUnverified) {
+                unverifiedSessionAllowances.add(active.id());
+            }
         }
         persist(config.withEnabled(enabled));
+    }
+
+    public synchronized boolean requiresVerificationWarning(UUID id) {
+        return id != null && requireRecord(id).verification() == VerificationState.UNVERIFIED
+            && !unverifiedSessionAllowances.contains(id);
     }
 
     public synchronized void select(UUID id, boolean keepEncryptionEnabled, ServerBinding currentServer) {
@@ -119,6 +161,9 @@ public final class ChannelService implements AutoCloseable {
         boolean enabled = config.encryptionEnabled() && keepEncryptionEnabled;
         if (enabled) {
             requireReadyFor(id, currentServer);
+            if (requiresVerificationWarning(id)) {
+                throw new IllegalStateException("Confirm this unverified channel before keeping encryption on");
+            }
         }
         persist(config.withActive(id).withEnabled(enabled));
     }
@@ -155,6 +200,20 @@ public final class ChannelService implements AutoCloseable {
         persist(config.upsert(requireRecord(id).withBinding(null), false));
     }
 
+    public synchronized void markVerified(UUID id) {
+        persist(config.upsert(requireRecord(id).withVerification(VerificationState.VERIFIED), false));
+        unverifiedSessionAllowances.remove(id);
+    }
+
+    public synchronized void markUnverified(UUID id) {
+        ChannelConfig updated = config.upsert(requireRecord(id).withVerification(VerificationState.UNVERIFIED), false);
+        if (id.equals(config.activeChannelId())) {
+            updated = updated.withEnabled(false);
+        }
+        persist(updated);
+        unverifiedSessionAllowances.remove(id);
+    }
+
     public synchronized void setTransport(ServerBinding endpoint, TransportMode mode) {
         if (endpoint == null) {
             throw new IllegalStateException("Transport compatibility can only be set for multiplayer servers");
@@ -180,23 +239,59 @@ public final class ChannelService implements AutoCloseable {
         configStore.save(updated);
         config = updated;
         keys.remove(id);
+        unverifiedSessionAllowances.remove(id);
         replayCache.removeFingerprint(old.fingerprint());
     }
 
+    public synchronized ChannelRecord replaceCompromised(UUID id) {
+        requireWritable();
+        ChannelRecord old = requireRecord(id);
+        KeyMaterial key = ChannelKeys.generate();
+        ChannelRecord replacement = new ChannelRecord(UUID.randomUUID(), old.name(), ChannelIdentity.fingerprint(key),
+            old.binding(), VerificationState.LOCAL_CREATED);
+        try {
+            ChannelConfig updated = config.remove(id).upsert(replacement, true).withEnabled(false);
+            configStore.save(updated);
+            config = updated;
+            keys.remove(id);
+            unverifiedSessionAllowances.remove(id);
+            keys.put(replacement.id(), key);
+            key = null;
+            replayCache.removeFingerprint(old.fingerprint());
+            return replacement;
+        } finally {
+            if (key != null) {
+                key.close();
+            }
+        }
+    }
+
+    public synchronized void resetUnsafeConfiguration() {
+        LoadedConfig loaded = configStore.resetUnsafeConfiguration();
+        config = loaded.config();
+        writable = loaded.writable();
+        loadState = loaded.state();
+        startupNotices.clear();
+        if (!loaded.notice().isEmpty()) startupNotices.add(loaded.notice());
+        keys.close();
+        unverifiedSessionAllowances.clear();
+    }
+
     public synchronized ChannelStatus status(ServerBinding currentServer) {
+        if (loadState.safeMode()) {
+            return new ChannelStatus(TransportState.CONFIG_LOCKED, null);
+        }
         if (!config.encryptionEnabled()) {
-            return new ChannelStatus(TransportState.OFF, config.activeChannel(), "Public chat is plaintext");
+            return new ChannelStatus(TransportState.OFF, config.activeChannel());
         }
         ChannelRecord active = config.activeChannel();
         if (active == null || keys.get(active.id()) == null) {
-            return new ChannelStatus(TransportState.NO_CHANNEL, active,
-                "No session key is available. Import an invite or turn encrypted chat off.");
+            return new ChannelStatus(TransportState.NO_CHANNEL, active);
         }
         if (active.binding() != null && !active.binding().equals(currentServer)) {
-            return new ChannelStatus(TransportState.SUSPENDED, active,
-                "This channel is bound to " + active.binding().displayName() + ". Public chat is blocked here.");
+            return new ChannelStatus(TransportState.SUSPENDED, active);
         }
-        return new ChannelStatus(TransportState.READY, active, "");
+        return new ChannelStatus(TransportState.READY, active);
     }
 
     public synchronized MessagePreflight preflightOutgoing(String normalizedMessage, ServerBinding currentServer) {
@@ -205,6 +300,9 @@ public final class ChannelService implements AutoCloseable {
             return MessagePreflight.passthrough(channelStatus);
         }
         TransportMode transport = config.transportFor(currentServer);
+        if (channelStatus.state() == TransportState.CONFIG_LOCKED) {
+            return MessagePreflight.blocked(channelStatus, transport, null, OutboundBlockReason.CONFIG_LOCKED);
+        }
         if (channelStatus.state() == TransportState.NO_CHANNEL) {
             return MessagePreflight.blocked(channelStatus, transport, null, OutboundBlockReason.NO_CHANNEL);
         }
@@ -332,5 +430,7 @@ public final class ChannelService implements AutoCloseable {
     @Override
     public synchronized void close() {
         keys.close();
+        unverifiedSessionAllowances.clear();
+        replayCache.close();
     }
 }

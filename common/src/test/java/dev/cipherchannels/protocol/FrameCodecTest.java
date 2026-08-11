@@ -22,9 +22,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class FrameCodecTest {
     private static final byte[] RECOGNITION_DOMAIN =
-        "CipherChannels recognition v1\0".getBytes(StandardCharsets.UTF_8);
+        "CipherChannels recognition v2\0".getBytes(StandardCharsets.UTF_8);
     private static final byte[] FRAME_DOMAIN =
-        "CipherChannels frame v1\0".getBytes(StandardCharsets.UTF_8);
+        "CipherChannels frame v2\0".getBytes(StandardCharsets.UTF_8);
 
     @Test
     void roundTripsBothFixedTransportsWithUnicode() {
@@ -113,36 +113,58 @@ class FrameCodecTest {
     @Test
     void rejectsAuthenticatedInvalidControlUtf8StreamsTrailingBytesAndExpansionBombs() {
         try (KeyMaterial key = ChannelKeys.generate()) {
-            byte[] invalidControl = new byte[TransportMode.HIGH_CAPACITY.encryptedPlaintextLength()];
-            invalidControl[0] = 1;
-            invalidControl[1] = 0x12;
-            assertAuthenticatedContentFailure(key, authenticatedWire(key, TransportMode.HIGH_CAPACITY, invalidControl, (byte) 1));
+            for (byte legacyControl : new byte[] {0x10, 0x11}) {
+                byte[] invalidControl = new byte[TransportMode.HIGH_CAPACITY.encryptedPlaintextLength()];
+                invalidControl[0] = 1;
+                invalidControl[1] = legacyControl;
+                assertAuthenticatedContentFailure(key,
+                    authenticatedWire(key, TransportMode.HIGH_CAPACITY, invalidControl, legacyControl));
+                Arrays.fill(invalidControl, (byte) 0);
+            }
 
             byte[] invalidUtf8 = new byte[TransportMode.HIGH_CAPACITY.encryptedPlaintextLength()];
             invalidUtf8[0] = (byte) 0xC3;
             invalidUtf8[1] = 0x28;
-            invalidUtf8[2] = FrameCodec.CONTROL_RAW_V1;
+            invalidUtf8[2] = FrameCodec.CONTROL_RAW_V2;
             assertAuthenticatedContentFailure(key, authenticatedWire(key, TransportMode.HIGH_CAPACITY, invalidUtf8, (byte) 2));
 
             byte[] compressed = deflate("hello".getBytes(StandardCharsets.UTF_8));
             byte[] trailing = new byte[TransportMode.HIGH_CAPACITY.encryptedPlaintextLength()];
             System.arraycopy(compressed, 0, trailing, 0, compressed.length);
             trailing[compressed.length] = 1;
-            trailing[compressed.length + 1] = FrameCodec.CONTROL_DEFLATE_V1;
+            trailing[compressed.length + 1] = FrameCodec.CONTROL_DEFLATE_V2;
             assertAuthenticatedContentFailure(key, authenticatedWire(key, TransportMode.HIGH_CAPACITY, trailing, (byte) 3));
 
             byte[] bomb = deflate("z".repeat(4097).getBytes(StandardCharsets.UTF_8));
             byte[] bombRecord = new byte[TransportMode.HIGH_CAPACITY.encryptedPlaintextLength()];
             System.arraycopy(bomb, 0, bombRecord, 0, bomb.length);
-            bombRecord[bomb.length] = FrameCodec.CONTROL_DEFLATE_V1;
+            bombRecord[bomb.length] = FrameCodec.CONTROL_DEFLATE_V2;
             assertAuthenticatedContentFailure(key, authenticatedWire(key, TransportMode.HIGH_CAPACITY, bombRecord, (byte) 4));
 
-            Arrays.fill(invalidControl, (byte) 0);
             Arrays.fill(invalidUtf8, (byte) 0);
             Arrays.fill(compressed, (byte) 0);
             Arrays.fill(trailing, (byte) 0);
             Arrays.fill(bomb, (byte) 0);
             Arrays.fill(bombRecord, (byte) 0);
+        }
+    }
+
+    @Test
+    void versionOneRecognitionAndFrameDomainsAreNeverAccepted() {
+        byte[] padded = new byte[TransportMode.HIGH_CAPACITY.encryptedPlaintextLength()];
+        padded[0] = 'x';
+        padded[1] = 0x10;
+        byte[] recognitionV1 = "CipherChannels recognition v1\0".getBytes(StandardCharsets.UTF_8);
+        byte[] frameV1 = "CipherChannels frame v1\0".getBytes(StandardCharsets.UTF_8);
+        try (KeyMaterial key = ChannelKeys.generate();
+             ParsedFrame frame = FrameCodec.parse(authenticatedWire(key, TransportMode.HIGH_CAPACITY,
+                 padded, (byte) 9, recognitionV1, frameV1))) {
+            assertFalse(FrameCodec.matchesRecognitionHint(key, frame));
+            assertThrows(FrameCodec.FrameAuthenticationException.class, () -> FrameCodec.decrypt(key, frame));
+        } finally {
+            Arrays.fill(padded, (byte) 0);
+            Arrays.fill(recognitionV1, (byte) 0);
+            Arrays.fill(frameV1, (byte) 0);
         }
     }
 
@@ -226,16 +248,21 @@ class FrameCodecTest {
     }
 
     private static String authenticatedWire(KeyMaterial key, TransportMode mode, byte[] padded, byte nonceByte) {
+        return authenticatedWire(key, mode, padded, nonceByte, RECOGNITION_DOMAIN, FRAME_DOMAIN);
+    }
+
+    private static String authenticatedWire(KeyMaterial key, TransportMode mode, byte[] padded, byte nonceByte,
+                                            byte[] recognitionDomain, byte[] frameDomain) {
         byte[] nonce = new byte[AesGcm.NONCE_LENGTH];
         Arrays.fill(nonce, nonceByte);
         try (HkdfSha256.DerivedKeys derived = HkdfSha256.derive(key)) {
             byte[] transportId = {mode.id()};
-            byte[] fullHint = HkdfSha256.hmac(derived.recognition(), RECOGNITION_DOMAIN, transportId, nonce);
+            byte[] fullHint = HkdfSha256.hmac(derived.recognition(), recognitionDomain, transportId, nonce);
             byte[] hint = Arrays.copyOf(fullHint, FrameCodec.RECOGNITION_HINT_LENGTH);
-            byte[] aad = new byte[FRAME_DOMAIN.length + 1 + nonce.length + hint.length];
+            byte[] aad = new byte[frameDomain.length + 1 + nonce.length + hint.length];
             int cursor = 0;
-            System.arraycopy(FRAME_DOMAIN, 0, aad, cursor, FRAME_DOMAIN.length);
-            cursor += FRAME_DOMAIN.length;
+            System.arraycopy(frameDomain, 0, aad, cursor, frameDomain.length);
+            cursor += frameDomain.length;
             aad[cursor++] = mode.id();
             System.arraycopy(nonce, 0, aad, cursor, nonce.length);
             cursor += nonce.length;
