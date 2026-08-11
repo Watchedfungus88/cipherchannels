@@ -1,6 +1,6 @@
 # Changelog
 
-## 2.0.0 — Unreleased
+## 2.0.0 — 2026-08-11
 
 CipherChannels 2.0 is intentionally incompatible with 1.x. Every old channel must be recreated and shared with a new `CC2` invite.
 
