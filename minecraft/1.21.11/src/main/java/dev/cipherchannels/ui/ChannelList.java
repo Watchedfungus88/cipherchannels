@@ -70,8 +70,6 @@ final class ChannelList extends ObjectSelectionList<ChannelList.ChannelEntry> {
             Component name = Component.literal(active ? "✓ " + record.name() : record.name());
             Component status = Component.translatable(ready
                 ? "cipherchannels.channels.row.ready" : "cipherchannels.channels.row.key_needed");
-            status = status.copy().append(Component.translatable("cipherchannels.channels.row.verification",
-                Component.translatable("cipherchannels.verification." + record.verification().name().toLowerCase())));
             if (record.binding() != null) {
                 status = status.copy().append(Component.translatable("cipherchannels.channels.row.bound",
                     record.binding().displayName()));
@@ -108,7 +106,6 @@ final class ChannelList extends ObjectSelectionList<ChannelList.ChannelEntry> {
                 CipherChannels.channels().hasSessionKey(record.id())
                     ? Component.translatable("cipherchannels.value.ready")
                     : Component.translatable("cipherchannels.value.key_needed"),
-                Component.translatable("cipherchannels.verification." + record.verification().name().toLowerCase()),
                 record.binding() == null ? Component.translatable("cipherchannels.overview.binding.unbound")
                     : Component.translatable("cipherchannels.overview.binding.bound", record.binding().displayName()));
         }

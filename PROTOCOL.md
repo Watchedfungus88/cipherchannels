@@ -1,6 +1,6 @@
 # CipherChannels protocol 2
 
-This document specifies the interoperable CipherChannels 2.0 wire protocol. Integers and byte lengths are exact. Text domains are UTF-8 and include the final NUL byte shown as `\0`.
+This document specifies the interoperable CipherChannels 2 wire protocol used unchanged by CipherChannels 2.0 and 2.1. Integers and byte lengths are exact. Text domains are UTF-8 and include the final NUL byte shown as `\0`.
 
 ## Master key and identities
 
@@ -90,8 +90,8 @@ After authentication, the replay identifier is:
 fingerprint || SHA-256(transport-id || complete-binary-frame)
 ```
 
-Implementations retain up to 4,096 verified identifiers for six hours. A duplicate withholds plaintext. CipherChannels persists only the fingerprint, Base64url digest, and timestamp.
+Implementations retain up to 4,096 verified identifiers for six hours or until the client closes, whichever comes first. A duplicate withholds plaintext. CipherChannels keeps replay history only in memory.
 
 ## Vectors and compatibility
 
-Deterministic subkey, invite, fingerprint, hint, raw-frame, compressed-frame, and transport vectors are in [audit/protocol-vectors-v2.json](audit/protocol-vectors-v2.json). CipherChannels accepts no v1 domain, invite, control byte, frame, or configuration as v2 material.
+Deterministic subkey, invite, fingerprint, hint, raw-frame, compressed-frame, and transport fixtures are in [vectors/protocol-vectors-v2.json](vectors/protocol-vectors-v2.json). CipherChannels accepts no v1 domain, invite, control byte, frame, or configuration as v2 material.

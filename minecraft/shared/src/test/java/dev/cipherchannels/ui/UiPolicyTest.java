@@ -2,13 +2,10 @@ package dev.cipherchannels.ui;
 
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
-import dev.cipherchannels.channels.ChannelConfig;
-import dev.cipherchannels.channels.ChannelRecord;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Objects;
-import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -29,17 +26,6 @@ class UiPolicyTest {
     }
 
     @Test
-    void switchingIsImmediateOnlyWhenEncryptionIsOffAndNeverHidden() {
-        ChannelRecord first = record("One");
-        ChannelRecord second = record("Two");
-        ChannelConfig off = new ChannelConfig(ChannelConfig.CURRENT_VERSION, false, first.id(),
-            List.of(first, second), List.of());
-        assertEquals(UiPolicy.SwitchFlow.ALREADY_ACTIVE, UiPolicy.switchFlow(off, first.id()));
-        assertEquals(UiPolicy.SwitchFlow.IMMEDIATE, UiPolicy.switchFlow(off, second.id()));
-        assertEquals(UiPolicy.SwitchFlow.CONFIRM, UiPolicy.switchFlow(off.withEnabled(true), second.id()));
-    }
-
-    @Test
     void everyPersistentActionBannerAndDisabledReasonHasEnglishText() throws Exception {
         JsonObject translations = JsonParser.parseReader(new InputStreamReader(Objects.requireNonNull(
             getClass().getResourceAsStream("/assets/cipherchannels/lang/en_us.json")), StandardCharsets.UTF_8)).getAsJsonObject();
@@ -50,23 +36,23 @@ class UiPolicyTest {
             "cipherchannels.feedback.switched_off", "cipherchannels.feedback.invite_copied",
             "cipherchannels.feedback.forgotten", "cipherchannels.feedback.bound",
             "cipherchannels.feedback.unbound", "cipherchannels.feedback.transport",
-            "cipherchannels.feedback.failed", "cipherchannels.feedback.replaced",
-            "cipherchannels.feedback.verified", "cipherchannels.feedback.verification_reset",
+            "cipherchannels.feedback.failed", "cipherchannels.feedback.rotated",
             "cipherchannels.disabled.no_channel", "cipherchannels.disabled.not_ready",
             "cipherchannels.disabled.multiplayer_only", "cipherchannels.disabled.chat_logging",
-            "cipherchannels.disabled.unverified_switch",
             "cipherchannels.chat.status.ready_raw", "cipherchannels.chat.status.ready_compressed",
-            "cipherchannels.chat.status.warning", "cipherchannels.chat.status.unverified",
-            "cipherchannels.chat.status.replay_session_only",
+            "cipherchannels.chat.status.warning",
             "cipherchannels.chat.status.command_plaintext", "cipherchannels.block.source_too_large",
             "cipherchannels.block.does_not_fit", "cipherchannels.block.config_locked",
             "key.category.cipherchannels.general")) {
             assertTrue(translations.has(key), key);
             assertFalse(translations.get(key).getAsString().isBlank(), key);
         }
+        for (String removed : List.of(
+            "cipherchannels.verification.unverified", "cipherchannels.overview.replay",
+            "cipherchannels.tab.share_security", "cipherchannels.confirm.switch.title",
+            "cipherchannels.security.old_logs")) {
+            assertFalse(translations.has(removed), removed);
+        }
     }
 
-    private static ChannelRecord record(String name) {
-        return new ChannelRecord(UUID.randomUUID(), name, "0123-4567-89AB-CDEF", null);
-    }
 }

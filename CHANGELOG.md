@@ -1,5 +1,18 @@
 # Changelog
 
+## 2.1.0 — 2026-08-17
+
+CipherChannels 2.1 keeps complete compatibility with 2.0 `CC2` channels, invites, fingerprints, and encrypted frames.
+
+- Made replay protection session-only again: 4,096 authenticated frames for up to six hours, cleared on restart and never persisted.
+- Removed verification labels, unverified-channel approvals, stored trust state, and security-checklist ceremony.
+- Simplified channel switching: ready channels switch immediately; missing keys and binding mismatches are rejected without changing state.
+- Replaced compromised-channel presentation with direct channel-key rotation while preserving the local name and binding.
+- Reduced the manager to Overview, Channels, and Channel tabs with one-click invite copying and an always-visible secret warning.
+- Migrated schema v3 settings to v4 without changing operational channel metadata or enabled intent.
+- Kept Chat Patches log sanitization, multi-node formatted-message reconstruction, strict binding, fail-closed sending, guarded clipboard clearing, and reproducible releases.
+- Renamed the public protocol material to interoperability vectors without implying an independent audit.
+
 ## 2.0.1 — 2026-08-17
 
 - Fixed a startup crash when Chat Patches was installed alongside mods that trigger early Mixin processing, including C2ME.

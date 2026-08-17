@@ -8,13 +8,9 @@ import dev.cipherchannels.channels.MessagePreflight;
 import dev.cipherchannels.channels.OutboundBlockReason;
 import dev.cipherchannels.channels.ServerBinding;
 import dev.cipherchannels.channels.TransportState;
-import dev.cipherchannels.channels.VerificationState;
 import dev.cipherchannels.protocol.FramePreview;
 import dev.cipherchannels.protocol.TransportMode;
 import java.util.Objects;
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import net.minecraft.Util;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ServerData;
@@ -25,7 +21,6 @@ import org.apache.commons.lang3.StringUtils;
 public final class ClientContext {
     private static String lastNotice = "";
     private static long lastNoticeAt;
-    private static boolean oldLogsChecked;
 
     private ClientContext() {}
 
@@ -65,26 +60,8 @@ public final class ClientContext {
         }
     }
 
-    public static void checkSecurityNotices() {
-        if (oldLogsChecked) return;
-        oldLogsChecked = true;
-        if (oldChatLogsPresent()) {
-            notice(Component.translatable("cipherchannels.notice.old_chatpatches_logs"));
-        }
-    }
-
-    public static boolean oldChatLogsPresent() {
-        Path logs = Minecraft.getInstance().gameDirectory.toPath().resolve("logs");
-        if (!Files.isDirectory(logs)) return false;
-        try (var entries = Files.list(logs)) {
-            return entries.anyMatch(path -> path.getFileName().toString().matches("chatlog.*\\.json"));
-        } catch (IOException exception) {
-            return false;
-        }
-    }
-
-    public static void openChatLogs() {
-        Util.getPlatform().openPath(Minecraft.getInstance().gameDirectory.toPath().resolve("logs"));
+    public static void openConfigFolder() {
+        Util.getPlatform().openPath(CipherChannels.channels().configDirectory());
     }
 
     public static Component entryButtonLabel() {
@@ -124,8 +101,8 @@ public final class ClientContext {
         ChannelRecord channel = channelStatus.activeChannel();
         String name = channel == null ? Component.translatable("cipherchannels.channel.none").getString() : channel.name();
         if (normalized.isEmpty() && channelStatus.state() == TransportState.READY) {
-            Component text = securityStatus(Component.translatable("cipherchannels.chat.status.encrypted",
-                name, transportName(preflight.transport())), channel);
+            Component text = Component.translatable("cipherchannels.chat.status.encrypted",
+                name, transportName(preflight.transport()));
             return new DraftStatus(text, 0xFF55FFFF, preflight);
         }
         if (preflight.ready()) {
@@ -133,7 +110,7 @@ public final class ClientContext {
             Component text = preview.compressed()
                 ? Component.translatable("cipherchannels.chat.status.ready_compressed", preview.sourceBytes())
                 : Component.translatable("cipherchannels.chat.status.ready_raw", preview.sourceBytes(), preview.capacity());
-            return new DraftStatus(securityStatus(text, channel), 0xFF55FF55, preflight);
+            return new DraftStatus(text, 0xFF55FF55, preflight);
         }
         return new DraftStatus(blockExplanation(preflight), 0xFFFF5555, preflight);
     }
@@ -165,16 +142,4 @@ public final class ClientContext {
             ? "cipherchannels.transport.compatibility" : "cipherchannels.transport.high_capacity");
     }
 
-    private static Component securityStatus(Component base, ChannelRecord channel) {
-        Component result = base;
-        if (channel != null && channel.verification() == VerificationState.UNVERIFIED) {
-            result = Component.translatable("cipherchannels.chat.status.warning", result,
-                Component.translatable("cipherchannels.chat.status.unverified"));
-        }
-        if (!CipherChannels.channels().replayPersistenceHealthy()) {
-            result = Component.translatable("cipherchannels.chat.status.warning", result,
-                Component.translatable("cipherchannels.chat.status.replay_session_only"));
-        }
-        return result;
-    }
 }

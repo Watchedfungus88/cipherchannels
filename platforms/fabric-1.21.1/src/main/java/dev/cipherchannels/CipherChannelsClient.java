@@ -38,6 +38,5 @@ public final class CipherChannelsClient implements ClientModInitializer {
         if (!notice.isEmpty()) {
             ClientContext.notice(Component.translatable(notice));
         }
-        ClientContext.checkSecurityNotices();
     }
 }

@@ -19,7 +19,7 @@ class ConfigStoreTest {
     @TempDir Path temporaryDirectory;
 
     @Test
-    void writesVersionThreeAtomicallyKeepsBackupAndNeverStoresSecrets() throws Exception {
+    void writesVersionFourAtomicallyKeepsBackupAndNeverStoresSecrets() throws Exception {
         ConfigStore store = new ConfigStore(temporaryDirectory);
         UUID id = UUID.randomUUID();
         ChannelRecord record = new ChannelRecord(id, "Friends", "0123-4567-89AB-CDEF", null);
@@ -31,7 +31,8 @@ class ConfigStoreTest {
 
         String stored = Files.readString(store.configFile());
         assertTrue(Files.isRegularFile(temporaryDirectory.resolve("cipherchannels.json.bak")));
-        assertTrue(stored.contains("\"version\":3"));
+        assertTrue(stored.contains("\"version\":4"));
+        assertFalse(stored.contains("verification"));
         assertTrue(stored.contains("ASCII_COMPATIBILITY"));
         assertFalse(stored.contains("CC1."));
         assertFalse(stored.contains("plaintext"));
@@ -68,7 +69,7 @@ class ConfigStoreTest {
                 + "\"fingerprint\":\"0123-4567-89AB-CDEF\",\"binding\":null}]}";
             Files.writeString(store.configFile(), obsolete);
             LoadedConfig reset = store.load();
-            assertEquals(ConfigLoadState.FIRST_RUN, reset.state());
+            assertEquals(ConfigLoadState.NORMAL, reset.state());
             assertFalse(reset.config().encryptionEnabled());
             assertTrue(reset.config().channels().isEmpty());
             try (var paths = Files.list(store.configFile().getParent())) {
@@ -78,7 +79,7 @@ class ConfigStoreTest {
     }
 
     @Test
-    void corruptPrimaryRecoversValidVersionThreeBackup() throws Exception {
+    void corruptPrimaryRecoversValidVersionFourBackup() throws Exception {
         ConfigStore store = new ConfigStore(temporaryDirectory.resolve("backup-recovery"));
         ChannelConfig expected = ChannelConfig.empty().upsert(
             new ChannelRecord(UUID.randomUUID(), "Friends", "0123-4567-89AB-CDEF", null), true);
@@ -86,7 +87,7 @@ class ConfigStoreTest {
         store.save(expected.withEnabled(true));
         Files.writeString(store.configFile(), "broken");
         LoadedConfig recovered = store.load();
-        assertEquals(ConfigLoadState.RECOVERED, recovered.state());
+        assertEquals(ConfigLoadState.NORMAL, recovered.state());
         assertEquals(expected, recovered.config());
         assertTrue(recovered.writable());
     }
@@ -98,7 +99,7 @@ class ConfigStoreTest {
         Files.writeString(corruptStore.configFile(), "not JSON");
         LoadedConfig recovered = corruptStore.load();
         assertFalse(recovered.writable());
-        assertEquals(ConfigLoadState.SAFE_MODE_CORRUPT, recovered.state());
+        assertEquals(ConfigLoadState.LOCKED_CORRUPT, recovered.state());
         assertFalse(recovered.config().encryptionEnabled());
         assertTrue(recovered.config().channels().isEmpty());
         assertEquals("cipherchannels.notice.config.corrupt", recovered.notice());
@@ -108,13 +109,58 @@ class ConfigStoreTest {
 
         ConfigStore newerStore = new ConfigStore(temporaryDirectory.resolve("newer"));
         Files.createDirectories(newerStore.configFile().getParent());
-        String newer = "{\"version\":4,\"encryptionEnabled\":true,\"activeChannelId\":null,"
+        String newer = "{\"version\":5,\"encryptionEnabled\":true,\"activeChannelId\":null,"
             + "\"channels\":[],\"transportOverrides\":[]}";
         Files.writeString(newerStore.configFile(), newer);
         LoadedConfig readOnly = newerStore.load();
         assertFalse(readOnly.writable());
         assertFalse(readOnly.config().encryptionEnabled());
         assertEquals(newer, Files.readString(newerStore.configFile()));
+    }
+
+    @Test
+    void migratesVersionThreeWithoutChangingOperationalMetadata() throws Exception {
+        ConfigStore store = new ConfigStore(temporaryDirectory.resolve("v3"));
+        Files.createDirectories(store.configFile().getParent());
+        UUID id = UUID.randomUUID();
+        String old = "{\"version\":3,\"encryptionEnabled\":true,\"activeChannelId\":\"" + id
+            + "\",\"channels\":[{\"id\":\"" + id + "\",\"name\":\"Friends\","
+            + "\"fingerprint\":\"0123-4567-89AB-CDEF\",\"verification\":\"VERIFIED\","
+            + "\"binding\":{\"host\":\"play.example\",\"port\":25565}}],"
+            + "\"transportOverrides\":[{\"host\":\"play.example\",\"port\":25565,"
+            + "\"mode\":\"ASCII_COMPATIBILITY\"}]}";
+        Files.writeString(store.configFile(), old);
+
+        LoadedConfig migrated = store.load();
+        assertEquals(ConfigLoadState.NORMAL, migrated.state());
+        assertEquals("cipherchannels.notice.config.migrated_v4", migrated.notice());
+        assertTrue(migrated.config().encryptionEnabled());
+        assertEquals(id, migrated.config().activeChannelId());
+        assertEquals("Friends", migrated.config().activeChannel().name());
+        assertEquals(ServerBinding.of("play.example", 25565), migrated.config().activeChannel().binding());
+        assertEquals(TransportMode.ASCII_COMPATIBILITY,
+            migrated.config().transportFor(ServerBinding.of("play.example", 25565)));
+        String stored = Files.readString(store.configFile());
+        assertTrue(stored.contains("\"version\":4"));
+        assertFalse(stored.contains("verification"));
+        assertEquals(old, Files.readString(temporaryDirectory.resolve("v3/cipherchannels.json.bak")));
+    }
+
+    @Test
+    void removesLegacyReplayFilesAndNeverRecreatesThem() throws Exception {
+        Path directory = temporaryDirectory.resolve("session-replay");
+        Files.createDirectories(directory);
+        Path primary = directory.resolve("cipherchannels-replay.json");
+        Path backup = directory.resolve("cipherchannels-replay.json.bak");
+        Files.writeString(primary, "old");
+        Files.writeString(backup, "old");
+        ConfigStore store = new ConfigStore(directory);
+        store.load();
+        assertFalse(Files.exists(primary));
+        assertFalse(Files.exists(backup));
+        store.save(ChannelConfig.empty());
+        assertFalse(Files.exists(primary));
+        assertFalse(Files.exists(backup));
     }
 
     @Test

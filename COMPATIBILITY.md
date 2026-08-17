@@ -23,11 +23,12 @@ All ten artifacts compile and run the same protocol vectors and common security 
 | High Capacity | Default; requires a normalization-clean Unicode relay |
 | Compatibility | Manual per-server ASCII fallback for Unicode rejection |
 | Slash commands | Deliberately plaintext with an explicit warning |
-| Chat Patches logging | Optional protected hook; incompatible enabled logging fails closed |
+| Chat Patches 8.0 alpha 11 on Fabric 26.2 | Protected logging hook validated with C2ME 0.4.2 alpha 0.35 |
+| Other Chat Patches versions | Optional version-sensitive hook; incompatible enabled logging fails closed |
 | No Chat Reports | CipherChannels replaces text before Minecraft constructs and sends the signed message body; ciphertext is the message seen by signing/reporting code |
 | Unknown chat rewriting mods | Not guaranteed; modified ciphertext remains visible and is never guessed or repaired |
 
-Chat Patches protection targets its `ChatLog.addHistory(String)` and `ChatLog.addMessage(Component)` logging entry points and is validated at startup. Compatibility is deliberately version-sensitive: if the installed logger is enabled but its protected methods do not match, encrypted sending and decryption pause.
+Chat Patches protection targets its `ChatLog.addHistory(String)` and `ChatLog.addMessage(Component)` logging entry points and is validated at startup. Compatibility is deliberately version-sensitive: if the installed logger is enabled but its protected methods do not match, encrypted sending and decryption pause. No Chat Reports 2.20.1 was also tested on Fabric 26.2.
 
 No client mod can prevent arbitrary other code in the same process from reading plaintext or keys from memory. Report compatibility results without posting real invites, plaintext, or raw frames.
 

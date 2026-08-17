@@ -2,7 +2,7 @@ plugins {
     `java-library`
 }
 
-sourceSets.test { resources.srcDir(rootProject.file("audit")) }
+sourceSets.test { resources.srcDir(rootProject.file("vectors")) }
 
 repositories {
     mavenCentral()
