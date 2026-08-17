@@ -54,6 +54,5 @@ public final class CipherChannelsNeoForge {
         if (!notice.isEmpty()) {
             ClientContext.notice(Component.translatable(notice));
         }
-        ClientContext.checkSecurityNotices();
     }
 }

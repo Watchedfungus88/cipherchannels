@@ -8,6 +8,7 @@ import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -62,10 +63,10 @@ class ChannelServiceTest {
             assertEquals(second.id(), service.config().activeChannelId());
             assertFalse(service.config().encryptionEnabled());
 
-            service.select(first.id(), false, null);
+            service.select(first.id(), null);
             service.setEnabled(true, null);
             assertTrue(service.canKeepEncryptionOn(second.id(), null));
-            service.select(second.id(), true, null);
+            service.select(second.id(), null);
             assertTrue(service.config().encryptionEnabled());
             assertEquals(second.id(), service.config().activeChannelId());
 
@@ -73,6 +74,40 @@ class ChannelServiceTest {
             assertEquals(first.id(), imported.id());
             assertEquals(first.id(), service.config().activeChannelId());
             assertFalse(service.config().encryptionEnabled());
+        }
+    }
+
+    @Test
+    void switchingWhileEnabledRejectsUnavailableTargetsWithoutChangingState() {
+        Path path = temporaryDirectory.resolve("switching");
+        String firstInvite;
+        UUID firstId;
+        UUID secondId;
+        try (ChannelService service = new ChannelService(new ConfigStore(path))) {
+            ChannelRecord first = service.create("One");
+            firstInvite = service.inviteFor(first.id());
+            ChannelRecord second = service.create("Two");
+            firstId = first.id();
+            secondId = second.id();
+        }
+        try (ChannelService service = new ChannelService(new ConfigStore(path))) {
+            service.importInvite(firstInvite, "One");
+            service.setEnabled(true, null);
+            assertThrows(IllegalStateException.class, () -> service.select(secondId, null));
+            assertEquals(firstId, service.config().activeChannelId());
+            assertTrue(service.config().encryptionEnabled());
+        }
+
+        try (ChannelService service = new ChannelService(new ConfigStore(temporaryDirectory.resolve("binding-switch")))) {
+            ChannelRecord first = service.create("One");
+            ChannelRecord second = service.create("Two");
+            ServerBinding here = ServerBinding.of("here.example", 25565);
+            service.bind(second.id(), ServerBinding.of("elsewhere.example", 25565));
+            service.select(first.id(), here);
+            service.setEnabled(true, here);
+            assertThrows(IllegalStateException.class, () -> service.select(second.id(), here));
+            assertEquals(first.id(), service.config().activeChannelId());
+            assertTrue(service.config().encryptionEnabled());
         }
     }
 
@@ -167,39 +202,31 @@ class ChannelServiceTest {
     }
 
     @Test
-    void importedChannelsRequireSessionApprovalUntilFingerprintIsVerified() {
+    void importedChannelsCanBeEnabledWithoutTrustCeremony() {
         Path senderPath = temporaryDirectory.resolve("verification-sender");
         Path receiverPath = temporaryDirectory.resolve("verification-receiver");
         try (ChannelService sender = new ChannelService(new ConfigStore(senderPath));
              ChannelService receiver = new ChannelService(new ConfigStore(receiverPath))) {
             ChannelRecord source = sender.create("Friends");
-            ChannelRecord imported = receiver.importInvite(sender.inviteFor(source.id()), "Friends");
-            assertEquals(VerificationState.UNVERIFIED, imported.verification());
-            assertThrows(IllegalStateException.class, () -> receiver.setEnabled(true, null));
-            receiver.setEnabled(true, null, true);
-            receiver.setEnabled(false, null);
+            receiver.importInvite(sender.inviteFor(source.id()), "Friends");
             receiver.setEnabled(true, null);
-            receiver.markVerified(imported.id());
-            assertEquals(VerificationState.VERIFIED, receiver.config().activeChannel().verification());
-            receiver.markUnverified(imported.id());
-            assertThrows(IllegalStateException.class, () -> receiver.setEnabled(true, null));
+            assertTrue(receiver.config().encryptionEnabled());
         }
     }
 
     @Test
-    void compromisedReplacementPreservesLocalContextAndRemovesOldSecret() {
+    void keyRotationPreservesLocalContextAndRemovesOldSecret() {
         try (ChannelService service = new ChannelService(new ConfigStore(temporaryDirectory.resolve("replacement")))) {
             ChannelRecord old = service.create("Close friends");
             ServerBinding binding = ServerBinding.of("play.example", 25565);
             service.bind(old.id(), binding);
             String oldInvite = service.inviteFor(old.id());
             service.setEnabled(true, binding);
-            ChannelRecord replacement = service.replaceCompromised(old.id());
+            ChannelRecord replacement = service.rotateKey(old.id());
             assertNotEquals(old.id(), replacement.id());
             assertNotEquals(old.fingerprint(), replacement.fingerprint());
             assertEquals(old.name(), replacement.name());
             assertEquals(binding, replacement.binding());
-            assertEquals(VerificationState.LOCAL_CREATED, replacement.verification());
             assertFalse(service.config().encryptionEnabled());
             assertThrows(IllegalStateException.class, () -> service.inviteFor(old.id()));
             assertNotEquals(oldInvite, service.inviteFor(replacement.id()));
@@ -220,7 +247,7 @@ class ChannelServiceTest {
     }
 
     @Test
-    void verifiedReplayHistorySurvivesRestart() {
+    void replayHistoryResetsAfterRestart() {
         Path senderPath = temporaryDirectory.resolve("replay-sender");
         Path receiverPath = temporaryDirectory.resolve("replay-receiver");
         String invite;
@@ -236,34 +263,30 @@ class ChannelServiceTest {
         }
         try (ChannelService receiver = new ChannelService(new ConfigStore(receiverPath))) {
             receiver.importInvite(invite, "Friends");
-            assertEquals(FrameFailure.REPLAYED, receiver.decryptIncoming(frame).failure());
+            assertTrue(receiver.decryptIncoming(frame).authenticated());
         }
     }
 
     @Test
-    void forgettingRemovesPersistentReplayHistoryForThatFingerprint() {
+    void forgettingRemovesReplayHistoryForThatFingerprint() {
         Path senderPath = temporaryDirectory.resolve("forget-sender");
         Path receiverPath = temporaryDirectory.resolve("forget-receiver");
-        String invite;
-        String frame;
         try (ChannelService sender = new ChannelService(new ConfigStore(senderPath));
              ChannelService receiver = new ChannelService(new ConfigStore(receiverPath))) {
             ChannelRecord source = sender.create("Friends");
-            invite = sender.inviteFor(source.id());
+            String invite = sender.inviteFor(source.id());
             ChannelRecord imported = receiver.importInvite(invite, "Friends");
             sender.setEnabled(true, null);
-            frame = sender.prepareOutgoing("forget replay history", null).frame();
+            String frame = sender.prepareOutgoing("forget replay history", null).frame();
             assertTrue(receiver.decryptIncoming(frame).authenticated());
             receiver.forget(imported.id());
-        }
-        try (ChannelService receiver = new ChannelService(new ConfigStore(receiverPath))) {
             receiver.importInvite(invite, "Friends");
             assertTrue(receiver.decryptIncoming(frame).authenticated());
         }
     }
 
     @Test
-    void replacementRemovesReplayHistoryForTheCompromisedFingerprint() {
+    void rotationRemovesReplayHistoryForTheOldFingerprint() {
         Path senderPath = temporaryDirectory.resolve("replace-replay-sender");
         Path receiverPath = temporaryDirectory.resolve("replace-replay-receiver");
         try (ChannelService sender = new ChannelService(new ConfigStore(senderPath));
@@ -274,14 +297,14 @@ class ChannelServiceTest {
             sender.setEnabled(true, null);
             String frame = sender.prepareOutgoing("replace replay history", null).frame();
             assertTrue(receiver.decryptIncoming(frame).authenticated());
-            receiver.replaceCompromised(imported.id());
+            receiver.rotateKey(imported.id());
             receiver.importInvite(invite, "Old compromised key");
             assertTrue(receiver.decryptIncoming(frame).authenticated());
         }
     }
 
     @Test
-    void replacementRollsBackWhenConfigurationCannotBeSaved() throws Exception {
+    void rotationRollsBackWhenConfigurationCannotBeSaved() throws Exception {
         Path path = temporaryDirectory.resolve("replacement-rollback");
         ConfigStore store = new ConfigStore(path);
         try (ChannelService service = new ChannelService(store)) {
@@ -290,14 +313,14 @@ class ChannelServiceTest {
             Path moved = temporaryDirectory.resolve("replacement-rollback-preserved");
             Files.move(path, moved);
             Files.writeString(path, "not a directory");
-            assertThrows(IllegalStateException.class, () -> service.replaceCompromised(original.id()));
+            assertThrows(IllegalStateException.class, () -> service.rotateKey(original.id()));
             assertEquals(original, service.config().activeChannel());
             assertEquals(invite, service.inviteFor(original.id()));
         }
     }
 
     @Test
-    void recoveredConfigurationCanBeExplicitlyAcknowledged() throws Exception {
+    void recoveredConfigurationContinuesNormallyWithNotice() throws Exception {
         Path path = temporaryDirectory.resolve("acknowledge-recovery");
         ConfigStore store = new ConfigStore(path);
         ChannelConfig config = ChannelConfig.empty().upsert(
@@ -306,9 +329,8 @@ class ChannelServiceTest {
         store.save(config.withEnabled(true));
         Files.writeString(store.configFile(), "broken");
         try (ChannelService service = new ChannelService(store)) {
-            assertEquals(dev.cipherchannels.storage.ConfigLoadState.RECOVERED, service.loadState());
-            service.acknowledgeRecovery();
             assertEquals(dev.cipherchannels.storage.ConfigLoadState.NORMAL, service.loadState());
+            assertEquals("cipherchannels.notice.config.recovered_primary", service.takeStartupNotice());
         }
     }
 }

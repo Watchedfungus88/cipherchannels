@@ -18,7 +18,7 @@ class ReplayCacheTest {
         byte[] first = {1};
         assertFalse(cache.isReplay("AAAA-BBBB-CCCC-DDDD", first));
         assertTrue(cache.isReplay("AAAA-BBBB-CCCC-DDDD", first));
-        clock.advance(ReplayCache.LIFETIME.plusSeconds(1));
+        clock.advance(ReplayCache.LIFETIME);
         assertFalse(cache.isReplay("AAAA-BBBB-CCCC-DDDD", first));
 
         for (int index = 0; index <= ReplayCache.MAX_ENTRIES; index++) {

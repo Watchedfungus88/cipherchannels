@@ -8,7 +8,6 @@ import dev.cipherchannels.channels.ChannelConfig;
 import dev.cipherchannels.channels.ChannelRecord;
 import dev.cipherchannels.channels.ServerBinding;
 import dev.cipherchannels.channels.TransportOverride;
-import dev.cipherchannels.channels.VerificationState;
 import dev.cipherchannels.protocol.TransportMode;
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -33,16 +32,19 @@ public final class ConfigStore {
     }
 
     public LoadedConfig load() {
+        removeLegacyReplayFiles();
         if (!Files.isRegularFile(configFile)) {
             return loadBackupOrFirstRun();
         }
         try {
-            ChannelConfig config = read(configFile);
-            return new LoadedConfig(config, true, ConfigLoadState.NORMAL, "");
+            Decoded decoded = read(configFile);
+            if (decoded.migrated()) save(decoded.config());
+            return new LoadedConfig(decoded.config(), true, ConfigLoadState.NORMAL,
+                decoded.migrated() ? "cipherchannels.notice.config.migrated_v4" : "");
         } catch (ObsoleteVersionException exception) {
             return resetObsolete(configFile);
         } catch (NewerVersionException exception) {
-            return new LoadedConfig(ChannelConfig.empty(), false, ConfigLoadState.SAFE_MODE_NEWER,
+            return new LoadedConfig(ChannelConfig.empty(), false, ConfigLoadState.LOCKED_NEWER,
                 "cipherchannels.notice.config.newer");
         } catch (IOException | RuntimeException exception) {
             return recoverAfterFailure();
@@ -52,7 +54,7 @@ public final class ConfigStore {
     public LoadedConfig resetUnsafeConfiguration() {
         Path backup = backupFile();
         if (!preserve(configFile, "reset") || !preserve(backup, "reset")) {
-            return new LoadedConfig(ChannelConfig.empty(), false, ConfigLoadState.SAFE_MODE_CORRUPT,
+            return new LoadedConfig(ChannelConfig.empty(), false, ConfigLoadState.LOCKED_CORRUPT,
                 "cipherchannels.notice.config.reset_failed");
         }
         ChannelConfig empty = ChannelConfig.empty();
@@ -107,55 +109,55 @@ public final class ConfigStore {
     private LoadedConfig loadBackupOrFirstRun() {
         Path backup = backupFile();
         if (!Files.isRegularFile(backup)) {
-            return new LoadedConfig(ChannelConfig.empty(), true, ConfigLoadState.FIRST_RUN, "");
+            return new LoadedConfig(ChannelConfig.empty(), true, ConfigLoadState.NORMAL, "");
         }
         try {
-            ChannelConfig recovered = read(backup);
-            save(recovered);
-            return new LoadedConfig(recovered, true, ConfigLoadState.RECOVERED,
+            Decoded recovered = read(backup);
+            save(recovered.config());
+            return new LoadedConfig(recovered.config(), true, ConfigLoadState.NORMAL,
                 "cipherchannels.notice.config.recovered_backup");
         } catch (ObsoleteVersionException exception) {
             return resetObsolete(backup);
         } catch (NewerVersionException exception) {
-            return new LoadedConfig(ChannelConfig.empty(), false, ConfigLoadState.SAFE_MODE_NEWER,
+            return new LoadedConfig(ChannelConfig.empty(), false, ConfigLoadState.LOCKED_NEWER,
                 "cipherchannels.notice.config.backup_newer");
         } catch (IOException | RuntimeException exception) {
             preserve(backup, "corrupt");
-            return new LoadedConfig(ChannelConfig.empty(), false, ConfigLoadState.SAFE_MODE_CORRUPT,
+            return new LoadedConfig(ChannelConfig.empty(), false, ConfigLoadState.LOCKED_CORRUPT,
                 "cipherchannels.notice.config.backup_corrupt");
         }
     }
 
     private LoadedConfig recoverAfterFailure() {
         if (!preserve(configFile, "corrupt")) {
-            return new LoadedConfig(ChannelConfig.empty(), false, ConfigLoadState.SAFE_MODE_CORRUPT,
+            return new LoadedConfig(ChannelConfig.empty(), false, ConfigLoadState.LOCKED_CORRUPT,
                 "cipherchannels.notice.config.preserve_failed");
         }
         Path backup = backupFile();
         if (!Files.isRegularFile(backup)) {
-            return new LoadedConfig(ChannelConfig.empty(), false, ConfigLoadState.SAFE_MODE_CORRUPT,
+            return new LoadedConfig(ChannelConfig.empty(), false, ConfigLoadState.LOCKED_CORRUPT,
                 "cipherchannels.notice.config.corrupt");
         }
         try {
-            ChannelConfig recovered = read(backup);
-            save(recovered);
-            return new LoadedConfig(recovered, true, ConfigLoadState.RECOVERED,
+            Decoded recovered = read(backup);
+            save(recovered.config());
+            return new LoadedConfig(recovered.config(), true, ConfigLoadState.NORMAL,
                 "cipherchannels.notice.config.recovered_primary");
         } catch (ObsoleteVersionException exception) {
             return resetObsolete(backup);
         } catch (NewerVersionException exception) {
-            return new LoadedConfig(ChannelConfig.empty(), false, ConfigLoadState.SAFE_MODE_NEWER,
+            return new LoadedConfig(ChannelConfig.empty(), false, ConfigLoadState.LOCKED_NEWER,
                 "cipherchannels.notice.config.recovered_newer");
         } catch (IOException | RuntimeException exception) {
             preserve(backup, "corrupt");
-            return new LoadedConfig(ChannelConfig.empty(), false, ConfigLoadState.SAFE_MODE_CORRUPT,
+            return new LoadedConfig(ChannelConfig.empty(), false, ConfigLoadState.LOCKED_CORRUPT,
                 "cipherchannels.notice.config.both_corrupt");
         }
     }
 
     private LoadedConfig resetObsolete(Path source) {
         if (!preserve(source, "pre-2.0")) {
-            return new LoadedConfig(ChannelConfig.empty(), false, ConfigLoadState.SAFE_MODE_CORRUPT,
+            return new LoadedConfig(ChannelConfig.empty(), false, ConfigLoadState.LOCKED_CORRUPT,
                 "cipherchannels.notice.config.pre20_preserve_failed");
         }
         if (!source.equals(backupFile())) {
@@ -164,17 +166,26 @@ public final class ConfigStore {
         ChannelConfig empty = ChannelConfig.empty();
         try {
             save(empty);
-            return new LoadedConfig(empty, true, ConfigLoadState.FIRST_RUN,
+            return new LoadedConfig(empty, true, ConfigLoadState.NORMAL,
                 "cipherchannels.notice.config.pre20_reset");
         } catch (RuntimeException exception) {
-            return new LoadedConfig(empty, false, ConfigLoadState.SAFE_MODE_CORRUPT,
+            return new LoadedConfig(empty, false, ConfigLoadState.LOCKED_CORRUPT,
                 "cipherchannels.notice.config.pre20_save_failed");
         }
     }
 
-    private ChannelConfig read(Path path) throws IOException {
+    private Decoded read(Path path) throws IOException {
         if (Files.size(path) > MAX_FILE_BYTES) throw new IOException("Settings file is too large");
         return decode(Files.readString(path, StandardCharsets.UTF_8));
+    }
+
+    private void removeLegacyReplayFiles() {
+        for (String name : List.of("cipherchannels-replay.json", "cipherchannels-replay.json.bak")) {
+            try {
+                Files.deleteIfExists(configFile.resolveSibling(name));
+            } catch (IOException ignored) {
+            }
+        }
     }
 
     private static void forceDirectory(Path directory) {
@@ -220,7 +231,6 @@ public final class ConfigStore {
             entry.addProperty("id", channel.id().toString());
             entry.addProperty("name", channel.name());
             entry.addProperty("fingerprint", channel.fingerprint());
-            entry.addProperty("verification", channel.verification().name());
             if (channel.binding() == null) {
                 entry.add("binding", com.google.gson.JsonNull.INSTANCE);
             } else {
@@ -244,7 +254,7 @@ public final class ConfigStore {
         return root.toString();
     }
 
-    private static ChannelConfig decode(String source) {
+    private static Decoded decode(String source) {
         JsonElement parsed = JsonParser.parseString(source);
         if (!parsed.isJsonObject()) {
             throw new IllegalArgumentException("Settings root is not an object");
@@ -254,7 +264,7 @@ public final class ConfigStore {
         if (version > ChannelConfig.CURRENT_VERSION) {
             throw new NewerVersionException();
         }
-        if (version < ChannelConfig.CURRENT_VERSION) {
+        if (version < 3) {
             throw new ObsoleteVersionException();
         }
         boolean enabled = required(root, "encryptionEnabled").getAsBoolean();
@@ -273,8 +283,11 @@ public final class ConfigStore {
             String name = required(entry, "name").getAsString();
             String fingerprint = required(entry, "fingerprint").getAsString();
             ServerBinding binding = nullableBinding(required(entry, "binding"));
-            VerificationState verification = VerificationState.valueOf(required(entry, "verification").getAsString());
-            channels.add(new ChannelRecord(id, name, fingerprint, binding, verification));
+            if (version == 3 && !required(entry, "verification").getAsString()
+                .matches("LOCAL_CREATED|UNVERIFIED|VERIFIED")) {
+                throw new IllegalArgumentException("Invalid verification value");
+            }
+            channels.add(new ChannelRecord(id, name, fingerprint, binding));
         }
         List<TransportOverride> overrides = new ArrayList<>();
         JsonElement rawOverrides = required(root, "transportOverrides");
@@ -291,7 +304,8 @@ public final class ConfigStore {
             TransportMode mode = TransportMode.valueOf(required(entry, "mode").getAsString());
             overrides.add(new TransportOverride(endpoint, mode));
         }
-        return new ChannelConfig(ChannelConfig.CURRENT_VERSION, enabled, active, channels, overrides);
+        return new Decoded(new ChannelConfig(ChannelConfig.CURRENT_VERSION, enabled, active, channels, overrides),
+            version == 3);
     }
 
     private static JsonElement required(JsonObject object, String name) {
@@ -324,4 +338,6 @@ public final class ConfigStore {
     private static final class ObsoleteVersionException extends RuntimeException {
         private static final long serialVersionUID = 1L;
     }
+
+    private record Decoded(ChannelConfig config, boolean migrated) {}
 }

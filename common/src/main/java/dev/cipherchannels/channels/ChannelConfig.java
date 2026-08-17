@@ -8,7 +8,7 @@ import java.util.UUID;
 
 public record ChannelConfig(int version, boolean encryptionEnabled, UUID activeChannelId,
                             List<ChannelRecord> channels, List<TransportOverride> transportOverrides) {
-    public static final int CURRENT_VERSION = 3;
+    public static final int CURRENT_VERSION = 4;
     public static final int MAX_CHANNELS = 64;
     public static final int MAX_TRANSPORT_OVERRIDES = 64;
 
