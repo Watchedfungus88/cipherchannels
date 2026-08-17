@@ -3,7 +3,6 @@ package dev.cipherchannels.mixin;
 import dev.cipherchannels.chat.ChatLogProtection;
 import java.util.List;
 import java.util.Set;
-import net.minecraft.network.chat.Component;
 import org.objectweb.asm.tree.AbstractInsnNode;
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.MethodInsnNode;
@@ -16,7 +15,7 @@ public final class CipherChannelsMixinPlugin implements IMixinConfigPlugin {
     @Override public boolean shouldApplyMixin(String targetClassName, String mixinClassName) {
         if (!mixinClassName.endsWith("ChatPatchesChatLogMixin")) return true;
         ChatLogProtection.setHookConfigured(false);
-        return compatibleChatPatches();
+        return true;
     }
     @Override public void acceptTargets(Set<String> myTargets, Set<String> otherTargets) {}
     @Override public List<String> getMixins() { return null; }
@@ -26,17 +25,6 @@ public final class CipherChannelsMixinPlugin implements IMixinConfigPlugin {
         String owner = ChatLogProtection.class.getName().replace('.', '/');
         ChatLogProtection.setHookConfigured(hasHook(targetClass, "addHistory", owner, "sanitizeHistory")
             && hasHook(targetClass, "addMessage", owner, "sanitizeMessage"));
-    }
-
-    private static boolean compatibleChatPatches() {
-        try {
-            Class<?> type = Class.forName("obro1961.chatpatches.ChatLog", false,
-                CipherChannelsMixinPlugin.class.getClassLoader());
-            return type.getDeclaredMethod("addHistory", String.class).getReturnType() == void.class
-                && type.getDeclaredMethod("addMessage", Component.class).getReturnType() == void.class;
-        } catch (ReflectiveOperationException | LinkageError exception) {
-            return false;
-        }
     }
 
     private static boolean hasHook(ClassNode type, String targetName, String owner, String sanitizer) {

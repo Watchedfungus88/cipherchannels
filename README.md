@@ -20,16 +20,16 @@ Install exactly one JAR matching the Minecraft version and loader.
 
 | Minecraft | Loader | Java | Required runtime | JAR |
 |---|---|---:|---|---|
-| 1.21.1 | Fabric | 21 | Fabric Loader 0.19.3+, Fabric API 0.116.15+1.21.1+ | `cipherchannels-2.0.0+fabric.1.21.1.jar` |
-| 1.21.1 | NeoForge | 21 | NeoForge 21.1.248+ | `cipherchannels-2.0.0+neoforge.1.21.1.jar` |
-| 1.21.11 | Fabric | 21 | Fabric Loader 0.19.3+, Fabric API 0.141.6+1.21.11+ | `cipherchannels-2.0.0+fabric.1.21.11.jar` |
-| 1.21.11 | NeoForge | 21 | NeoForge 21.11.45+ | `cipherchannels-2.0.0+neoforge.1.21.11.jar` |
-| 26.1 | Fabric | 25 | Fabric Loader 0.19.3+, Fabric API 0.145.1+26.1+ | `cipherchannels-2.0.0+fabric.26.1.jar` |
-| 26.1 | NeoForge | 25 | NeoForge 26.1.0.19-beta+ | `cipherchannels-2.0.0+neoforge.26.1.jar` |
-| 26.1.2 | Fabric | 25 | Fabric Loader 0.19.3+, Fabric API 0.155.2+26.1.2+ | `cipherchannels-2.0.0+fabric.26.1.2.jar` |
-| 26.1.2 | NeoForge | 25 | NeoForge 26.1.2.94+ | `cipherchannels-2.0.0+neoforge.26.1.2.jar` |
-| 26.2 | Fabric | 25 | Fabric Loader 0.19.3+, Fabric API 0.156.0+26.2+ | `cipherchannels-2.0.0+fabric.26.2.jar` |
-| 26.2 | NeoForge | 25 | NeoForge 26.2.0.53-beta+ | `cipherchannels-2.0.0+neoforge.26.2.jar` |
+| 1.21.1 | Fabric | 21 | Fabric Loader 0.19.3+, Fabric API 0.116.15+1.21.1+ | `cipherchannels-2.0.1+fabric.1.21.1.jar` |
+| 1.21.1 | NeoForge | 21 | NeoForge 21.1.248+ | `cipherchannels-2.0.1+neoforge.1.21.1.jar` |
+| 1.21.11 | Fabric | 21 | Fabric Loader 0.19.3+, Fabric API 0.141.6+1.21.11+ | `cipherchannels-2.0.1+fabric.1.21.11.jar` |
+| 1.21.11 | NeoForge | 21 | NeoForge 21.11.45+ | `cipherchannels-2.0.1+neoforge.1.21.11.jar` |
+| 26.1 | Fabric | 25 | Fabric Loader 0.19.3+, Fabric API 0.145.1+26.1+ | `cipherchannels-2.0.1+fabric.26.1.jar` |
+| 26.1 | NeoForge | 25 | NeoForge 26.1.0.19-beta+ | `cipherchannels-2.0.1+neoforge.26.1.jar` |
+| 26.1.2 | Fabric | 25 | Fabric Loader 0.19.3+, Fabric API 0.155.2+26.1.2+ | `cipherchannels-2.0.1+fabric.26.1.2.jar` |
+| 26.1.2 | NeoForge | 25 | NeoForge 26.1.2.94+ | `cipherchannels-2.0.1+neoforge.26.1.2.jar` |
+| 26.2 | Fabric | 25 | Fabric Loader 0.19.3+, Fabric API 0.156.0+26.2+ | `cipherchannels-2.0.1+fabric.26.2.jar` |
+| 26.2 | NeoForge | 25 | NeoForge 26.2.0.53-beta+ | `cipherchannels-2.0.1+neoforge.26.2.jar` |
 
 Fabric API is required on Fabric. NeoForge builds have no extra mod dependency. Mod Menu is optional.
 
@@ -63,7 +63,7 @@ Use Java 25 to run the checked-in Gradle wrapper; Java 21 targets use a toolchai
 
 ```sh
 ./gradlew clean test releaseBuild --no-daemon
-./scripts/reproducible-build.sh build/distributions/CipherChannels-2.0.0-source.zip
+./scripts/reproducible-build.sh
 ```
 
 Release files appear in `build/release`. The build validates all ten JARs, creates the source ZIP, and writes `SHA256SUMS`. Dependency verification and the wrapper distribution checksum are enabled. Tagged GitHub builds generate provenance attestations.

@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
-source_zip=${1:-build/distributions/CipherChannels-2.0.0-source.zip}
+version=$(sed -n 's/^mod_version=//p' gradle.properties)
+source_zip=${1:-build/distributions/CipherChannels-$version-source.zip}
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 for run in one two; do
