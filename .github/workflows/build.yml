@@ -17,10 +17,14 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.version.outputs.value }}
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
         with:
           persist-credentials: false
+      - id: version
+        run: echo "value=$(sed -n 's/^mod_version=//p' gradle.properties)" >> "$GITHUB_OUTPUT"
       - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961
         with:
           distribution: temurin
@@ -32,10 +36,10 @@ jobs:
           validate-wrappers: true
           cache-read-only: ${{ github.event_name == 'pull_request' }}
       - run: ./gradlew clean test releaseBuild --no-daemon
-      - run: ./scripts/reproducible-build.sh build/distributions/CipherChannels-2.0.0-source.zip
+      - run: ./scripts/reproducible-build.sh
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
-          name: cipherchannels-2.0.0
+          name: cipherchannels-${{ steps.version.outputs.value }}
           path: build/release/
           if-no-files-found: error
   attest:
@@ -50,7 +54,7 @@ jobs:
     steps:
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
         with:
-          name: cipherchannels-2.0.0
+          name: cipherchannels-${{ needs.build.outputs.version }}
           path: release
       - uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6
         with:

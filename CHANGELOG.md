@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.0.1 — 2026-08-17
+
+- Fixed a startup crash when Chat Patches was installed alongside mods that trigger early Mixin processing, including C2ME.
+- Kept full compatibility with 2.0 channels, invites, frames, and configuration.
+
 ## 2.0.0 — 2026-08-11
 
 CipherChannels 2.0 is intentionally incompatible with 1.x. Every old channel must be recreated and shared with a new `CC2` invite.
