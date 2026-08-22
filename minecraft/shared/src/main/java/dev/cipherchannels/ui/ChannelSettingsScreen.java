@@ -36,7 +36,8 @@ final class ChannelSettingsScreen extends SettingsScreenBase {
         int panelWidth = Math.min(WIDTH, width - 20);
         int left = (width - panelWidth) / 2;
         Component screenTitle = Component.translatable("cipherchannels.settings.channel_title", channel.name());
-        addRenderableOnly(new StringWidget((width - font.width(screenTitle)) / 2, 14, screenTitle, font));
+        addRenderableOnly(new StringWidget((width - font.width(screenTitle)) / 2, 14,
+            font.width(screenTitle), font.lineHeight, screenTitle, font));
         scroller.reset(34, height - 34);
         int y = 38;
 
@@ -106,7 +107,8 @@ final class ChannelSettingsScreen extends SettingsScreenBase {
 
     private int heading(int x, int y, int width, String key) {
         Component title = Component.translatable(key).withStyle(ChatFormatting.GRAY);
-        add(new StringWidget(x + (width - font.width(title)) / 2, y, title, font));
+        add(new StringWidget(x + (width - font.width(title)) / 2, y,
+            font.width(title), font.lineHeight, title, font));
         return y + 18;
     }
 

@@ -41,7 +41,8 @@ public final class ChannelManagerScreen extends Screen {
     protected void init() {
         int panelWidth = Math.min(WIDTH, width - 20);
         int left = (width - panelWidth) / 2;
-        addRenderableOnly(new StringWidget((width - font.width(title)) / 2, 14, title, font));
+        addRenderableOnly(new StringWidget((width - font.width(title)) / 2, 14,
+            font.width(title), font.lineHeight, title, font));
         if (CipherChannels.channels().loadState().locked()) {
             initLocked(left, panelWidth);
             return;
@@ -66,14 +67,14 @@ public final class ChannelManagerScreen extends Screen {
         int listTop = 78;
         int footerTop = height - 76;
         int listHeight = Math.max(1, footerTop - listTop - 4);
-        ChannelList list = addRenderableWidget(new ChannelList(minecraft, panelWidth, listHeight,
-            listTop, 36, this::selectRow, this::useFromList));
-        list.setX(left);
+        ChannelList list = addRenderableWidget(new ChannelList(minecraft, width, listHeight,
+            listTop, 36, panelWidth, this::selectRow, this::useFromList));
+        list.setX(0);
         for (ChannelRecord record : config.channels()) list.addRecord(record, record.id().equals(selectedId));
         if (config.channels().isEmpty()) {
-            addRenderableOnly(new MultiLineTextWidget(left, listTop + 14,
-                Component.translatable("cipherchannels.manager.empty").withStyle(ChatFormatting.GRAY), font)
-                .setMaxWidth(panelWidth).setCentered(true));
+            Component empty = Component.translatable("cipherchannels.manager.empty").withStyle(ChatFormatting.GRAY);
+            addRenderableOnly(new StringWidget((width - font.width(empty)) / 2,
+                listTop + (listHeight - font.lineHeight) / 2, font.width(empty), font.lineHeight, empty, font));
         }
 
         int half = (panelWidth - 4) / 2;

@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.2.1 — 2026-08-23
+
+- Replaced the narrow channel frame with a full-width vanilla selection area and compact centered rows.
+- Centered the empty-channel message correctly and kept it clear of the list separators.
+- Hardened row text sizing so long names and the active label remain inside the selectable row.
+- Fixed text positioning on Minecraft 26.2 screens after its `StringWidget` constructor changed meaning.
+
 ## 2.2.0 — 2026-08-23
 
 CipherChannels 2.2 keeps complete compatibility with 2.0 and 2.1 `CC2` channels, invites, fingerprints, settings, and encrypted frames.
