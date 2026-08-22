@@ -4,15 +4,15 @@
 
 CipherChannels is a client-only Fabric and NeoForge mod that encrypts complete Minecraft public-chat messages between people who share a secret invite. The server needs no plugin. It relays and signs a fixed 256-character ciphertext instead of receiving the plaintext.
 
-CipherChannels 2.1 uses the same `CC2` protocol, channels and invites as 2.0. CipherChannels 1.x remains incompatible.
+CipherChannels 2.2 uses the same `CC2` protocol, channels, invites, and settings as 2.0 and 2.1. CipherChannels 1.x remains incompatible.
 
 ## Quick start
 
-1. Open CipherChannels from chat or its configurable key, then create a channel or import an invite.
-2. Share or import the same invite privately. A fingerprint can optionally confirm that both people have the same key.
-3. Turn on encrypted chat from Overview.
+1. Open CipherChannels from chat or its configurable key, then choose `Create…` or `Import Invite…`.
+2. Open `Channel Settings…` to copy or load the secret invite. Share it privately; anyone with it can read and create channel messages.
+3. Select the channel, choose `Use Channel`, then turn `Encrypted Chat` on.
 
-Keys are not saved. Restarting Minecraft clears every key, so import the invite again before using an existing channel. The manager clearly shows whether encryption is on, which channel is active, whether its key is loaded, and why a send was blocked.
+Keys are not saved. Restarting Minecraft clears every key, so load the invite again from that channel's settings before using it. The manager uses standard Minecraft lists, buttons, forms, confirmations, tooltips, and toasts.
 
 ## Downloads
 
@@ -20,16 +20,16 @@ Install exactly one JAR matching the Minecraft version and loader.
 
 | Minecraft | Loader | Java | Required runtime | JAR |
 |---|---|---:|---|---|
-| 1.21.1 | Fabric | 21 | Fabric Loader 0.19.3+, Fabric API 0.116.15+1.21.1+ | `cipherchannels-2.1.0+fabric.1.21.1.jar` |
-| 1.21.1 | NeoForge | 21 | NeoForge 21.1.248+ | `cipherchannels-2.1.0+neoforge.1.21.1.jar` |
-| 1.21.11 | Fabric | 21 | Fabric Loader 0.19.3+, Fabric API 0.141.6+1.21.11+ | `cipherchannels-2.1.0+fabric.1.21.11.jar` |
-| 1.21.11 | NeoForge | 21 | NeoForge 21.11.45+ | `cipherchannels-2.1.0+neoforge.1.21.11.jar` |
-| 26.1 | Fabric | 25 | Fabric Loader 0.19.3+, Fabric API 0.145.1+26.1+ | `cipherchannels-2.1.0+fabric.26.1.jar` |
-| 26.1 | NeoForge | 25 | NeoForge 26.1.0.19-beta+ | `cipherchannels-2.1.0+neoforge.26.1.jar` |
-| 26.1.2 | Fabric | 25 | Fabric Loader 0.19.3+, Fabric API 0.155.2+26.1.2+ | `cipherchannels-2.1.0+fabric.26.1.2.jar` |
-| 26.1.2 | NeoForge | 25 | NeoForge 26.1.2.94+ | `cipherchannels-2.1.0+neoforge.26.1.2.jar` |
-| 26.2 | Fabric | 25 | Fabric Loader 0.19.3+, Fabric API 0.156.0+26.2+ | `cipherchannels-2.1.0+fabric.26.2.jar` |
-| 26.2 | NeoForge | 25 | NeoForge 26.2.0.53-beta+ | `cipherchannels-2.1.0+neoforge.26.2.jar` |
+| 1.21.1 | Fabric | 21 | Fabric Loader 0.19.3+, Fabric API 0.116.15+1.21.1+ | `cipherchannels-2.2.0+fabric.1.21.1.jar` |
+| 1.21.1 | NeoForge | 21 | NeoForge 21.1.248+ | `cipherchannels-2.2.0+neoforge.1.21.1.jar` |
+| 1.21.11 | Fabric | 21 | Fabric Loader 0.19.3+, Fabric API 0.141.6+1.21.11+ | `cipherchannels-2.2.0+fabric.1.21.11.jar` |
+| 1.21.11 | NeoForge | 21 | NeoForge 21.11.45+ | `cipherchannels-2.2.0+neoforge.1.21.11.jar` |
+| 26.1 | Fabric | 25 | Fabric Loader 0.19.3+, Fabric API 0.145.1+26.1+ | `cipherchannels-2.2.0+fabric.26.1.jar` |
+| 26.1 | NeoForge | 25 | NeoForge 26.1.0.19-beta+ | `cipherchannels-2.2.0+neoforge.26.1.jar` |
+| 26.1.2 | Fabric | 25 | Fabric Loader 0.19.3+, Fabric API 0.155.2+26.1.2+ | `cipherchannels-2.2.0+fabric.26.1.2.jar` |
+| 26.1.2 | NeoForge | 25 | NeoForge 26.1.2.94+ | `cipherchannels-2.2.0+neoforge.26.1.2.jar` |
+| 26.2 | Fabric | 25 | Fabric Loader 0.19.3+, Fabric API 0.156.0+26.2+ | `cipherchannels-2.2.0+fabric.26.2.jar` |
+| 26.2 | NeoForge | 25 | NeoForge 26.2.0.53-beta+ | `cipherchannels-2.2.0+neoforge.26.2.jar` |
 
 Fabric API is required on Fabric. NeoForge builds have no extra mod dependency. Mod Menu is optional.
 

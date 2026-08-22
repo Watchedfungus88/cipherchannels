@@ -1,5 +1,17 @@
 # Changelog
 
+## 2.2.0 — 2026-08-23
+
+CipherChannels 2.2 keeps complete compatibility with 2.0 and 2.1 `CC2` channels, invites, fingerprints, settings, and encrypted frames.
+
+- Replaced the dashboard and tabs with a narrow vanilla Minecraft manager, native channel list, standard buttons, tooltips, confirmations, and system toasts.
+- Added dedicated create, import, load-invite, rename, channel-settings, and locked-settings recovery screens.
+- Made channel activation explicit: selection never switches channels, while `Use Channel`, double-click, and Enter share the same safety checks.
+- Made importing a saved invite reload only its session key without renaming, duplicating, activating, or changing encryption intent.
+- Added masked invite entry with paste and show/hide controls, inline validation, keyboard submission, and direct CC1 incompatibility feedback.
+- Kept every security and transport capability available through the selected channel's settings while removing decorative panels and permanent banners.
+- Preserved the CC2 protocol, schema v4 configuration, session-only keys and replay cache, strict binding, Chat Patches protection, and fixed transports unchanged.
+
 ## 2.1.0 — 2026-08-17
 
 CipherChannels 2.1 keeps complete compatibility with 2.0 `CC2` channels, invites, fingerprints, and encrypted frames.

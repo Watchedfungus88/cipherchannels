@@ -43,11 +43,13 @@ subprojects {
             named("main") {
                 java.srcDir(rootProject.file("minecraft/shared/src/main/java"))
                 if (minecraftVersion != "1.21.1") java.srcDir(rootProject.file("minecraft/modern-shared/src/main/java"))
+                if (minecraftVersion.startsWith("26.")) java.srcDir(rootProject.file("minecraft/extractor-shared/src/main/java"))
                 java.srcDir(rootProject.file("minecraft/$minecraftVersion/src/main/java"))
             }
             named("test") {
                 java.srcDir(rootProject.file("minecraft/shared/src/test/java"))
                 if (minecraftVersion != "1.21.1") java.srcDir(rootProject.file("minecraft/modern-shared/src/test/java"))
+                if (minecraftVersion.startsWith("26.")) java.srcDir(rootProject.file("minecraft/extractor-shared/src/test/java"))
                 java.srcDir(rootProject.file("minecraft/$minecraftVersion/src/test/java"))
             }
         }

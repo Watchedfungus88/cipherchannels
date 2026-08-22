@@ -13,12 +13,18 @@ import dev.cipherchannels.protocol.TransportMode;
 import java.util.Objects;
 import net.minecraft.Util;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.client.gui.components.toasts.SystemToast;
+import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.multiplayer.ServerData;
 import net.minecraft.client.multiplayer.resolver.ServerAddress;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.Style;
+import net.minecraft.util.FormattedCharSequence;
 import org.apache.commons.lang3.StringUtils;
 
 public final class ClientContext {
+    private static final SystemToast.SystemToastId TOAST = new SystemToast.SystemToastId();
     private static String lastNotice = "";
     private static long lastNoticeAt;
 
@@ -62,6 +68,20 @@ public final class ClientContext {
 
     public static void openConfigFolder() {
         Util.getPlatform().openPath(CipherChannels.channels().configDirectory());
+    }
+
+    public static void setScreen(Screen screen) {
+        Minecraft.getInstance().setScreen(screen);
+    }
+
+    public static void maskInvite(EditBox input, boolean reveal) {
+        input.setFormatter((text, offset) -> FormattedCharSequence.forward(
+            reveal ? text : "•".repeat(text.length()), Style.EMPTY));
+    }
+
+    public static void toast(Component message) {
+        SystemToast.addOrUpdate(Minecraft.getInstance().getToasts(), TOAST,
+            Component.translatable("cipherchannels.screen.title"), message);
     }
 
     public static Component entryButtonLabel() {

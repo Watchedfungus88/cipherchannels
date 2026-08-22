@@ -1,6 +1,6 @@
 # CipherChannels protocol 2
 
-This document specifies the interoperable CipherChannels 2 wire protocol used unchanged by CipherChannels 2.0 and 2.1. Integers and byte lengths are exact. Text domains are UTF-8 and include the final NUL byte shown as `\0`.
+This document specifies the interoperable CipherChannels 2 wire protocol used unchanged by CipherChannels 2.0 through 2.2. Integers and byte lengths are exact. Text domains are UTF-8 and include the final NUL byte shown as `\0`.
 
 ## Master key and identities
 

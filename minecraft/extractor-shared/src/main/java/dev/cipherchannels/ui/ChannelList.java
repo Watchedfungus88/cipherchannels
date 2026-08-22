@@ -2,13 +2,13 @@ package dev.cipherchannels.ui;
 
 import dev.cipherchannels.CipherChannels;
 import dev.cipherchannels.channels.ChannelRecord;
-import java.util.UUID;
 import java.util.function.Consumer;
-import net.minecraft.Util;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.ObjectSelectionList;
+import net.minecraft.client.input.KeyEvent;
+import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.FormattedCharSequence;
 import org.lwjgl.glfw.GLFW;
@@ -17,8 +17,6 @@ final class ChannelList extends ObjectSelectionList<ChannelList.ChannelEntry> {
     private final Font font;
     private final Consumer<ChannelRecord> select;
     private final Consumer<ChannelRecord> use;
-    private UUID lastClicked;
-    private long lastClickAt;
 
     ChannelList(Minecraft minecraft, int width, int height, int y, int itemHeight,
                 Consumer<ChannelRecord> select, Consumer<ChannelRecord> use) {
@@ -54,8 +52,8 @@ final class ChannelList extends ObjectSelectionList<ChannelList.ChannelEntry> {
         }
 
         @Override
-        public void render(GuiGraphics graphics, int index, int top, int left, int width, int height,
-                           int mouseX, int mouseY, boolean hovered, float tickProgress) {
+        public void extractContent(GuiGraphicsExtractor graphics, int mouseX, int mouseY,
+                                   boolean hovered, float tickProgress) {
             boolean active = record.id().equals(CipherChannels.channels().config().activeChannelId());
             boolean ready = CipherChannels.channels().hasSessionKey(record.id());
             Component name = Component.literal(record.name());
@@ -63,32 +61,29 @@ final class ChannelList extends ObjectSelectionList<ChannelList.ChannelEntry> {
             Component status = Component.translatable(ready
                 ? "cipherchannels.manager.row.key_loaded" : "cipherchannels.manager.row.key_needed");
             int activeWidth = active ? font.width(activeLabel) : 0;
-            drawText(graphics, name, left + 4, top + 6,
-                width - 8 - (active ? activeWidth + 8 : 0), 0xFFFFFFFF);
-            if (active) graphics.drawString(font, activeLabel, left + width - activeWidth - 4,
-                top + 6, 0xFFAAAAAA, false);
-            drawText(graphics, status, left + 4, top + 20, width - 8, ready ? 0xFFAAAAAA : 0xFFFFAA00);
+            drawText(graphics, name, getX() + 4, getY() + 6,
+                getWidth() - 8 - (active ? activeWidth + 8 : 0), 0xFFFFFFFF);
+            if (active) graphics.text(font, activeLabel, getX() + getWidth() - activeWidth - 4,
+                getY() + 6, 0xFFAAAAAA, false);
+            drawText(graphics, status, getX() + 4, getY() + 20, getWidth() - 8,
+                ready ? 0xFFAAAAAA : 0xFFFFAA00);
         }
 
         @Override
-        public boolean mouseClicked(double mouseX, double mouseY, int button) {
-            if (button != 0) return false;
-            long now = Util.getMillis();
-            boolean doubleClick = record.id().equals(lastClicked) && now - lastClickAt < 250;
+        public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
+            if (event.button() != 0) return false;
             ChannelList.this.setSelected(this);
-            lastClicked = record.id();
-            lastClickAt = now;
             if (doubleClick) use.accept(record);
             return true;
         }
 
         @Override
-        public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
-            if (keyCode == GLFW.GLFW_KEY_ENTER || keyCode == GLFW.GLFW_KEY_KP_ENTER) {
+        public boolean keyPressed(KeyEvent event) {
+            if (event.key() == GLFW.GLFW_KEY_ENTER || event.key() == GLFW.GLFW_KEY_KP_ENTER) {
                 use.accept(record);
                 return true;
             }
-            if (keyCode == GLFW.GLFW_KEY_SPACE) {
+            if (event.key() == GLFW.GLFW_KEY_SPACE) {
                 ChannelList.this.setSelected(this);
                 return true;
             }
@@ -106,11 +101,11 @@ final class ChannelList extends ObjectSelectionList<ChannelList.ChannelEntry> {
         }
     }
 
-    private void drawText(GuiGraphics graphics, Component text, int x, int y, int maxWidth, int color) {
+    private void drawText(GuiGraphicsExtractor graphics, Component text, int x, int y, int maxWidth, int color) {
         FormattedCharSequence rendered = font.width(text) <= maxWidth
             ? text.getVisualOrderText()
             : Component.literal(font.plainSubstrByWidth(text.getString(),
                 Math.max(1, maxWidth - font.width("…"))) + "…").getVisualOrderText();
-        graphics.drawString(font, rendered, x, y, color, false);
+        graphics.text(font, rendered, x, y, color, false);
     }
 }
