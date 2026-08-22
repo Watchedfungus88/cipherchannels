@@ -54,7 +54,7 @@ class ChannelServiceTest {
     }
 
     @Test
-    void createImportAndSwitchingAreExplicitAndAlwaysStartDisabled() {
+    void createImportAndSwitchingAreExplicitAndNewChannelsStartDisabled() {
         try (ChannelService service = new ChannelService(new ConfigStore(temporaryDirectory))) {
             ChannelRecord first = service.create("One");
             String invite = service.inviteFor(first.id());
@@ -72,8 +72,68 @@ class ChannelServiceTest {
 
             ChannelRecord imported = service.importInvite(invite, "Same key");
             assertEquals(first.id(), imported.id());
-            assertEquals(first.id(), service.config().activeChannelId());
-            assertFalse(service.config().encryptionEnabled());
+            assertEquals(second.id(), service.config().activeChannelId());
+            assertTrue(service.config().encryptionEnabled());
+        }
+    }
+
+    @Test
+    void loadingSavedInvitePreservesSelectionAndEncryptionIntent() {
+        Path path = temporaryDirectory.resolve("load-key");
+        String firstInvite;
+        String secondInvite;
+        UUID firstId;
+        UUID secondId;
+        try (ChannelService service = new ChannelService(new ConfigStore(path))) {
+            ChannelRecord first = service.create("One");
+            firstInvite = service.inviteFor(first.id());
+            ChannelRecord second = service.create("Two");
+            secondInvite = service.inviteFor(second.id());
+            firstId = first.id();
+            secondId = second.id();
+            service.select(first.id(), null);
+            service.setEnabled(true, null);
+        }
+        try (ChannelService service = new ChannelService(new ConfigStore(path))) {
+            assertEquals(firstId, service.config().activeChannelId());
+            assertTrue(service.config().encryptionEnabled());
+            assertEquals(firstId, service.savedChannelForInvite(firstInvite).id());
+            ChannelRecord loaded = service.importInvite(firstInvite, "Ignored");
+            assertEquals(firstId, loaded.id());
+            assertEquals("One", loaded.name());
+            assertEquals(firstId, service.config().activeChannelId());
+            assertTrue(service.config().encryptionEnabled());
+            assertTrue(service.hasSessionKey(firstId));
+            assertFalse(service.hasSessionKey(secondId));
+            assertThrows(IllegalArgumentException.class, () -> service.loadKey(secondId, firstInvite));
+            assertFalse(service.hasSessionKey(secondId));
+            assertEquals(secondId, service.loadKey(secondId, secondInvite).id());
+            assertEquals(firstId, service.config().activeChannelId());
+            assertTrue(service.config().encryptionEnabled());
+        }
+    }
+
+    @Test
+    void exactChannelLoadingRespectsTheSessionKeyLimit() {
+        Path path = temporaryDirectory.resolve("key-limit");
+        List<UUID> ids = new ArrayList<>();
+        List<String> invites = new ArrayList<>();
+        for (int index = 0; index <= SessionKeyStore.MAX_KEYS; index++) {
+            try (ChannelService service = new ChannelService(new ConfigStore(path))) {
+                ChannelRecord channel = service.create("Channel " + index);
+                ids.add(channel.id());
+                invites.add(service.inviteFor(channel.id()));
+            }
+        }
+        try (ChannelService service = new ChannelService(new ConfigStore(path))) {
+            for (int index = 0; index < SessionKeyStore.MAX_KEYS; index++) {
+                service.loadKey(ids.get(index), invites.get(index));
+            }
+            assertFalse(service.canLoadSessionKey(ids.getLast()));
+            assertTrue(service.canLoadSessionKey(ids.getFirst()));
+            assertThrows(IllegalStateException.class,
+                () -> service.loadKey(ids.getLast(), invites.getLast()));
+            assertFalse(service.hasSessionKey(ids.getLast()));
         }
     }
 
@@ -91,7 +151,8 @@ class ChannelServiceTest {
             secondId = second.id();
         }
         try (ChannelService service = new ChannelService(new ConfigStore(path))) {
-            service.importInvite(firstInvite, "One");
+            service.loadKey(firstId, firstInvite);
+            service.select(firstId, null);
             service.setEnabled(true, null);
             assertThrows(IllegalStateException.class, () -> service.select(secondId, null));
             assertEquals(firstId, service.config().activeChannelId());

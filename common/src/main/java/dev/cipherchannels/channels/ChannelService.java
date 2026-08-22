@@ -68,6 +68,10 @@ public final class ChannelService implements AutoCloseable {
         return id != null && keys.get(id) != null;
     }
 
+    public synchronized boolean canLoadSessionKey(UUID id) {
+        return keys.canStore(id);
+    }
+
     public synchronized ChannelRecord create(String localName) {
         KeyMaterial key = ChannelKeys.generate();
         UUID id = UUID.randomUUID();
@@ -94,11 +98,43 @@ public final class ChannelService implements AutoCloseable {
             ChannelRecord existing = config.channels().stream()
                 .filter(record -> record.fingerprint().equals(fingerprint))
                 .findFirst().orElse(null);
-            ChannelRecord record = existing == null
-                ? new ChannelRecord(UUID.randomUUID(), requestedName, fingerprint, null) : existing;
+            if (existing != null) {
+                ensureKeyCapacity(existing.id());
+                keys.put(existing.id(), key);
+                key = null;
+                return existing;
+            }
+            ChannelRecord record = new ChannelRecord(UUID.randomUUID(), requestedName, fingerprint, null);
             ensureKeyCapacity(record.id());
             persist(config.upsert(record, true).withEnabled(false));
             keys.put(record.id(), key);
+            key = null;
+            return record;
+        } finally {
+            if (key != null) {
+                key.close();
+            }
+        }
+    }
+
+    public synchronized ChannelRecord savedChannelForInvite(String invite) {
+        try (KeyMaterial key = InviteCode.parse(invite)) {
+            String fingerprint = ChannelIdentity.fingerprint(key);
+            return config.channels().stream()
+                .filter(record -> record.fingerprint().equals(fingerprint))
+                .findFirst().orElse(null);
+        }
+    }
+
+    public synchronized ChannelRecord loadKey(UUID id, String invite) {
+        ChannelRecord record = requireRecord(id);
+        KeyMaterial key = InviteCode.parse(invite);
+        try {
+            if (!record.fingerprint().equals(ChannelIdentity.fingerprint(key))) {
+                throw new IllegalArgumentException("Invite does not belong to this channel");
+            }
+            ensureKeyCapacity(id);
+            keys.put(id, key);
             key = null;
             return record;
         } finally {

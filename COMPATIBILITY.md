@@ -14,6 +14,8 @@ CipherChannels is client-only. Every participant who wants plaintext must instal
 
 All ten artifacts compile and run the same protocol vectors and common security tests against their exact Minecraft APIs. Fabric requires Fabric API. NeoForge has no extra mod dependency.
 
+The vanilla manager is implemented against the 1.21.1, 1.21.11/26.1/26.1.2, and 26.2 GUI APIs. All families provide the same screens, controls, keyboard behavior, narration, and toast feedback.
+
 ## Chat behavior
 
 | Integration | Behavior |
