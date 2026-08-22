@@ -106,7 +106,9 @@ val writeSha256Sums by tasks.registering {
     outputs.file(output)
     doLast {
         val directory = releaseDirectory.get().asFile
-        val lines = directory.listFiles().orEmpty().filter { it.isFile && it.name != "SHA256SUMS" }
+        val lines = directory.listFiles().orEmpty().filter {
+            it.isFile && (it.extension == "jar" || it.name == "CipherChannels-${project.version}-source.zip")
+        }
             .sortedBy { it.name }.map { file ->
                 val digest = MessageDigest.getInstance("SHA-256")
                 file.inputStream().use { stream ->

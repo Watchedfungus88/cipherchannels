@@ -15,15 +15,17 @@ import org.lwjgl.glfw.GLFW;
 
 final class ChannelList extends ObjectSelectionList<ChannelList.ChannelEntry> {
     private final Font font;
+    private final int rowWidth;
     private final Consumer<ChannelRecord> select;
     private final Consumer<ChannelRecord> use;
     private UUID lastClicked;
     private long lastClickAt;
 
-    ChannelList(Minecraft minecraft, int width, int height, int y, int itemHeight,
+    ChannelList(Minecraft minecraft, int width, int height, int y, int itemHeight, int rowWidth,
                 Consumer<ChannelRecord> select, Consumer<ChannelRecord> use) {
         super(minecraft, width, height, y, itemHeight);
         this.font = minecraft.font;
+        this.rowWidth = rowWidth;
         this.select = select;
         this.use = use;
         centerListVertically = false;
@@ -43,7 +45,7 @@ final class ChannelList extends ObjectSelectionList<ChannelList.ChannelEntry> {
 
     @Override
     public int getRowWidth() {
-        return Math.max(1, getWidth() - 20);
+        return Math.max(1, Math.min(rowWidth, getWidth() - 20));
     }
 
     final class ChannelEntry extends ObjectSelectionList.Entry<ChannelEntry> {
@@ -64,7 +66,7 @@ final class ChannelList extends ObjectSelectionList<ChannelList.ChannelEntry> {
                 ? "cipherchannels.manager.row.key_loaded" : "cipherchannels.manager.row.key_needed");
             int activeWidth = active ? font.width(activeLabel) : 0;
             drawText(graphics, name, left + 4, top + 6,
-                width - 8 - (active ? activeWidth + 8 : 0), 0xFFFFFFFF);
+                Math.max(1, width - 8 - (active ? activeWidth + 8 : 0)), 0xFFFFFFFF);
             if (active) graphics.drawString(font, activeLabel, left + width - activeWidth - 4,
                 top + 6, 0xFFAAAAAA, false);
             drawText(graphics, status, left + 4, top + 20, width - 8, ready ? 0xFFAAAAAA : 0xFFFFAA00);

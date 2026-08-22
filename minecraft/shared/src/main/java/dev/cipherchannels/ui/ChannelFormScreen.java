@@ -63,11 +63,12 @@ final class ChannelFormScreen extends FormScreenBase {
     protected void init() {
         int panelWidth = Math.min(WIDTH, width - 20);
         int left = (width - panelWidth) / 2;
-        addRenderableOnly(new StringWidget((width - font.width(title)) / 2, 18, title, font));
+        addRenderableOnly(new StringWidget((width - font.width(title)) / 2, 18,
+            font.width(title), font.lineHeight, title, font));
         int y = 48;
         if (mode == Mode.IMPORT || mode == Mode.LOAD_KEY) {
-            addRenderableOnly(new StringWidget(left, y,
-                Component.translatable("cipherchannels.form.invite.label"), font));
+            Component inviteLabel = Component.translatable("cipherchannels.form.invite.label");
+            addRenderableOnly(new StringWidget(left, y, font.width(inviteLabel), font.lineHeight, inviteLabel, font));
             y += 15;
             inviteInput = addRenderableWidget(new EditBox(font, left, y, panelWidth, 20,
                 Component.translatable("cipherchannels.form.invite.narration")));
@@ -91,9 +92,9 @@ final class ChannelFormScreen extends FormScreenBase {
             y += 30;
         }
         if (mode != Mode.LOAD_KEY) {
-            addRenderableOnly(new StringWidget(left, y,
-                Component.translatable(mode == Mode.IMPORT
-                    ? "cipherchannels.form.name.new_label" : "cipherchannels.form.name.label"), font));
+            Component nameLabel = Component.translatable(mode == Mode.IMPORT
+                ? "cipherchannels.form.name.new_label" : "cipherchannels.form.name.label");
+            addRenderableOnly(new StringWidget(left, y, font.width(nameLabel), font.lineHeight, nameLabel, font));
             y += 15;
             nameInput = addRenderableWidget(new EditBox(font, left, y, panelWidth, 20,
                 Component.translatable("cipherchannels.form.name.narration")));
