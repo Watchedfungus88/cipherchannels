@@ -16,6 +16,6 @@ class ChatLogProtectionTest {
         assertEquals("different words", ChatLogProtection.sanitizeHistory("different words"));
         assertEquals(ChatLogProtection.PLACEHOLDER, ChatLogProtection.sanitizeHistory("A".repeat(256)));
         assertEquals(ChatLogProtection.PLACEHOLDER,
-            ChatLogProtection.sanitizeMessage(Component.literal("[L] " + "A".repeat(256))).getString());
+            ChatLogProtection.sanitizeMessage(Component.literal("[VIP] " + "A".repeat(256))).getString());
     }
 }

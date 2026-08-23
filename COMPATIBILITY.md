@@ -21,7 +21,7 @@ The vanilla manager is implemented against the 1.21.1, 1.21.11/26.1/26.1.2, and 
 | Integration | Behavior |
 |---|---|
 | Vanilla public chat | Supported in integrated singleplayer and vanilla multiplayer transport |
-| Timestamps, ranks, `[L]`, server channels, adjacent formatting nodes | One unchanged frame is reconstructed across adjacent literal nodes while styles and actions are preserved |
+| Timestamps, ranks, server-added prefixes, channel labels, adjacent formatting nodes | One unchanged frame is reconstructed across adjacent literal nodes while styles and actions are preserved |
 | High Capacity | Default; requires a normalization-clean Unicode relay |
 | Compatibility | Manual per-server ASCII fallback for Unicode rejection |
 | Slash commands | Deliberately plaintext with an explicit warning |

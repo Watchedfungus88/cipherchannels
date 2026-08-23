@@ -70,8 +70,8 @@ class ComponentTransformerTest {
     void transformsFramesInsideCommonServerAndModFormatting() {
         ChannelRecord channel = new ChannelRecord(UUID.randomUUID(), "Friends", "0123-4567-89AB-CDEF", null);
         ComponentTransformer transformer = new ComponentTransformer(wire -> IncomingResult.authenticated("hello", channel));
-        String prefix = "[01:12:19] [L] henryyonrice: ";
-        String suffix = " [local]";
+        String prefix = "[01:12:19] [VIP] player: ";
+        String suffix = " [channel]";
         Component source = Component.literal(prefix + WIRE + suffix).withStyle(ChatFormatting.RED);
 
         Component transformed = transformer.transform(source);
@@ -88,8 +88,8 @@ class ComponentTransformerTest {
         ComponentTransformer transformer = new ComponentTransformer(wire -> IncomingResult.authenticated("private", channel));
 
         Component transformed = transformer.transform(
-            Component.literal("[01:12:19] [L] player: " + highCapacityWire));
-        assertTrue(transformed.getString().startsWith("[01:12:19] [L] player: private"));
+            Component.literal("[01:12:19] [VIP] player: " + highCapacityWire));
+        assertTrue(transformed.getString().startsWith("[01:12:19] [VIP] player: private"));
         assertFalse(transformed.getString().contains(highCapacityWire));
     }
 
@@ -98,13 +98,13 @@ class ComponentTransformerTest {
         ChannelRecord channel = new ChannelRecord(UUID.randomUUID(), "Friends", "0123-4567-89AB-CDEF", null);
         ComponentTransformer transformer = new ComponentTransformer(wire -> IncomingResult.authenticated("hello", channel));
         Component componentArgument = Component.translatableWithFallback("test.chat.component", "<%s> %s",
-            Component.literal("player"), Component.literal("[L] " + WIRE));
-        Component stringArgument = Component.translatableWithFallback("test.chat.string", "%s", "[L] " + WIRE);
+            Component.literal("player"), Component.literal("[VIP] " + WIRE));
+        Component stringArgument = Component.translatableWithFallback("test.chat.string", "%s", "[VIP] " + WIRE);
 
         Component transformedComponent = transformer.transform(componentArgument);
         Component transformedString = transformer.transform(stringArgument);
-        assertTrue(transformedComponent.getString().contains("[L] hello"));
-        assertTrue(transformedString.getString().contains("[L] hello"));
+        assertTrue(transformedComponent.getString().contains("[VIP] hello"));
+        assertTrue(transformedString.getString().contains("[VIP] hello"));
         assertFalse(transformedComponent.getString().contains(WIRE));
         assertFalse(transformedString.getString().contains(WIRE));
         assertTrue(TransformedMessageRegistry.contains(transformedComponent));
@@ -114,12 +114,12 @@ class ComponentTransformerTest {
     void transformsOneIntactFrameAcrossAdjacentLiteralNodes() {
         ChannelRecord channel = new ChannelRecord(UUID.randomUUID(), "Friends", "0123-4567-89AB-CDEF", null);
         ComponentTransformer transformer = new ComponentTransformer(wire -> IncomingResult.authenticated("across nodes", channel));
-        Component source = Component.literal("[L] ").withStyle(ChatFormatting.GRAY)
+        Component source = Component.literal("[VIP] ").withStyle(ChatFormatting.GRAY)
             .append(Component.literal(WIRE.substring(0, 91)).withStyle(ChatFormatting.GOLD))
             .append(Component.literal(WIRE.substring(91)).withStyle(ChatFormatting.GREEN))
             .append(Component.literal(" suffix").withStyle(ChatFormatting.RED));
         Component transformed = transformer.transform(source);
-        assertTrue(transformed.getString().startsWith("[L] across nodes"));
+        assertTrue(transformed.getString().startsWith("[VIP] across nodes"));
         assertTrue(transformed.getString().endsWith(" suffix"));
         assertFalse(transformed.getString().contains(WIRE));
         Component plaintext = flatten(transformed).stream().filter(part -> part.getString().equals("across nodes")).findFirst().orElseThrow();

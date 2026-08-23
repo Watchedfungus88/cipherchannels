@@ -176,7 +176,7 @@ class FrameCodecTest {
         assertMalformed("A".repeat(255) + " ");
         assertEquals(0, FrameScanner.scan("~CC1:abcdefghijklmnop~").size());
         assertEquals(1, FrameScanner.scan("A".repeat(256)).size());
-        String formatted = "[01:12:19] [L] henryyonrice: " + "A".repeat(256) + " [local]";
+        String formatted = "[01:12:19] [VIP] player: " + "A".repeat(256) + " [channel]";
         FrameCandidate candidate = FrameScanner.scan(formatted).getFirst();
         assertEquals(formatted.indexOf("A".repeat(256)), candidate.start());
         assertEquals("A".repeat(256), candidate.wire());

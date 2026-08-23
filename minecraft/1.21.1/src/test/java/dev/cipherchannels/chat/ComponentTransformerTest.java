@@ -35,12 +35,12 @@ class ComponentTransformerTest {
         ComponentTransformer transformer = new ComponentTransformer(wire -> IncomingResult.authenticated("hello", channel));
         Style style = Style.EMPTY.withColor(ChatFormatting.GOLD).withUnderlined(true)
             .withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, Component.literal("original hover")));
-        Component source = Component.literal("[L] ").withStyle(ChatFormatting.GRAY)
+        Component source = Component.literal("[VIP] ").withStyle(ChatFormatting.GRAY)
             .append(Component.literal(WIRE.substring(0, 91)).withStyle(style))
             .append(Component.literal(WIRE.substring(91)).withStyle(ChatFormatting.GREEN))
             .append(Component.literal(" suffix").withStyle(ChatFormatting.RED));
         Component transformed = transformer.transform(source);
-        assertTrue(transformed.getString().startsWith("[L] hello"));
+        assertTrue(transformed.getString().startsWith("[VIP] hello"));
         assertTrue(transformed.getString().endsWith(" suffix"));
         assertFalse(transformed.getString().contains(WIRE));
         Component plaintext = transformed.getSiblings().stream()
@@ -57,8 +57,8 @@ class ComponentTransformerTest {
     void templatesFailuresReplayAndLegacyTextNeverRevealUnauthenticatedPlaintext() {
         ChannelRecord channel = new ChannelRecord(UUID.randomUUID(), "Friends", "0123-4567-89AB-CDEF", null);
         ComponentTransformer valid = new ComponentTransformer(wire -> IncomingResult.authenticated("hello", channel));
-        Component template = Component.translatableWithFallback("test.chat", "%s", Component.literal("[L] " + WIRE));
-        assertTrue(valid.transform(template).getString().contains("[L] hello"));
+        Component template = Component.translatableWithFallback("test.chat", "%s", Component.literal("[VIP] " + WIRE));
+        assertTrue(valid.transform(template).getString().contains("[VIP] hello"));
         for (FrameFailure failure : List.of(FrameFailure.UNKNOWN_CHANNEL, FrameFailure.AUTHENTICATION_FAILED,
             FrameFailure.AUTHENTICATED_INVALID, FrameFailure.REPLAYED)) {
             Component transformed = new ComponentTransformer(wire -> IncomingResult.failed(failure))
