@@ -1,7 +1,7 @@
 [versions]
 loom = "1.17.18"
 neoforge-moddev = "2.0.143"
-gson = "2.14.0"
+gson = "2.15.0"
 junit = "5.11.4"
 junit-platform = "1.11.4"
 fabric-loader = "0.19.3"
