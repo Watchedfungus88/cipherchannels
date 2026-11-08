@@ -82,7 +82,7 @@ tasks.register<Zip>("sourceReleaseZip") {
     from(projectDir) { into("CipherChannels-${providers.gradleProperty("mod_version").get()}") }
     exclude { it.relativePath.segments.firstOrNull() == ".git" }
     exclude(".gradle/**", "**/.gradle/**", "**/build/**", "dist/**", "**/dist/**",
-        "run/**", "**/run/**", "logs/**", "**/logs/**", ".idea/**",
+        "run/**", "**/run/**", "logs/**", "**/logs/**", ".idea/**", "agent/**", "ops/**", ".secrets/**",
         ".vscode/**", "*.iml", "**/.DS_Store", "*.launch", "*.launch.json")
     includeEmptyDirs = false
 }

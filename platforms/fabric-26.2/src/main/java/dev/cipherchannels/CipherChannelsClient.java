@@ -1,5 +1,9 @@
 package dev.cipherchannels;
 
+import dev.cipherchannels.telemetry.Telemetry;
+import dev.cipherchannels.telemetry.TelemetryHost;
+import java.nio.file.Path;
+
 import com.mojang.blaze3d.platform.InputConstants;
 import dev.cipherchannels.ui.ChannelManagerScreen;
 import dev.cipherchannels.ui.ClientContext;
@@ -19,13 +23,15 @@ public final class CipherChannelsClient implements ClientModInitializer {
 
     @Override
     public void onInitializeClient() {
-        CipherChannels.initialize(FabricLoader.getInstance().getConfigDir());
+        Path configDirectory = FabricLoader.getInstance().getConfigDir();
+        CipherChannels.initialize(configDirectory, new TelemetryHost(configDirectory));
         openScreenKey = KeyMappingHelper.registerKeyMapping(new KeyMapping(
             "key.cipherchannels.open", InputConstants.Type.KEYSYM, InputConstants.KEY_O,
             KeyMapping.Category.register(Identifier.fromNamespaceAndPath(CipherChannels.MOD_ID, "general"))));
         ClientTickEvents.END_CLIENT_TICK.register(this::onClientTick);
         ClientLifecycleEvents.CLIENT_STOPPING.register(ignored -> {
             InviteClipboardGuard.close();
+            Telemetry.stop();
             CipherChannels.shutdown();
         });
     }

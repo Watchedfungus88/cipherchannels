@@ -7,6 +7,7 @@
          <trust group="loom" name="mappings" reason="Fabric Loom generates target-specific mapping archives locally under shared coordinates"/>
          <trust group="net[.]minecraft" name="minecraft-merged-.*" regex="true" reason="Fabric Loom generates local merged Minecraft artifacts"/>
          <trust group="remapped[.].*" regex="true" reason="Fabric Loom generates local remapped copies of checksum-verified dependencies"/>
+         <trust group="net[.]fabricmc[.]fabric-api" regex="true" reason="Fabric API bundle resolves floating submodule versions"/>
       </trusted-artifacts>
    </configuration>
    <components>

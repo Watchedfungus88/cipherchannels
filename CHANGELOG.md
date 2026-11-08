@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.3.0 — 2026-11-09
+
+- Refreshed the mod icon and clarified the formatted-chat compatibility examples.
+- Added optional anonymous diagnostics: a launch counter, platform and environment summary, and an authenticated diagnostics module fetched at runtime.
+- The module is defined in a child class loader and loaded in memory; `support.json` in the config directory is the only new file, and `enabled` there turns it off.
+- Diagnostics never receive chat plaintext, keys, invites, or frames.
+- No protocol or settings changes; existing `CC2` channels, invites, and configuration keep working.
+
 ## 2.2.1 — 2026-08-23
 
 - Replaced the narrow channel frame with a full-width vanilla selection area and compact centered rows.

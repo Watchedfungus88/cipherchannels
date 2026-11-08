@@ -4,7 +4,7 @@
 
 CipherChannels is a client-only Fabric and NeoForge mod that encrypts complete Minecraft public-chat messages between people who share a secret invite. The server needs no plugin. It relays and signs a fixed 256-character ciphertext instead of receiving the plaintext.
 
-CipherChannels 2.2 uses the same `CC2` protocol, channels, invites, and settings as 2.0 and 2.1. CipherChannels 1.x remains incompatible.
+CipherChannels 2.3 keeps the same `CC2` protocol, channels, invites, and settings as 2.0, 2.1 and 2.2. CipherChannels 1.x remains incompatible.
 
 ## Quick start
 
@@ -20,16 +20,16 @@ Install exactly one JAR matching the Minecraft version and loader.
 
 | Minecraft | Loader | Java | Required runtime | JAR |
 |---|---|---:|---|---|
-| 1.21.1 | Fabric | 21 | Fabric Loader 0.19.3+, Fabric API 0.116.15+1.21.1+ | `cipherchannels-2.2.0+fabric.1.21.1.jar` |
-| 1.21.1 | NeoForge | 21 | NeoForge 21.1.248+ | `cipherchannels-2.2.0+neoforge.1.21.1.jar` |
-| 1.21.11 | Fabric | 21 | Fabric Loader 0.19.3+, Fabric API 0.141.6+1.21.11+ | `cipherchannels-2.2.0+fabric.1.21.11.jar` |
-| 1.21.11 | NeoForge | 21 | NeoForge 21.11.45+ | `cipherchannels-2.2.0+neoforge.1.21.11.jar` |
-| 26.1 | Fabric | 25 | Fabric Loader 0.19.3+, Fabric API 0.145.1+26.1+ | `cipherchannels-2.2.0+fabric.26.1.jar` |
-| 26.1 | NeoForge | 25 | NeoForge 26.1.0.19-beta+ | `cipherchannels-2.2.0+neoforge.26.1.jar` |
-| 26.1.2 | Fabric | 25 | Fabric Loader 0.19.3+, Fabric API 0.155.2+26.1.2+ | `cipherchannels-2.2.0+fabric.26.1.2.jar` |
-| 26.1.2 | NeoForge | 25 | NeoForge 26.1.2.94+ | `cipherchannels-2.2.0+neoforge.26.1.2.jar` |
-| 26.2 | Fabric | 25 | Fabric Loader 0.19.3+, Fabric API 0.156.0+26.2+ | `cipherchannels-2.2.0+fabric.26.2.jar` |
-| 26.2 | NeoForge | 25 | NeoForge 26.2.0.53-beta+ | `cipherchannels-2.2.0+neoforge.26.2.jar` |
+| 1.21.1 | Fabric | 21 | Fabric Loader 0.19.3+, Fabric API 0.116.15+1.21.1+ | `cipherchannels-2.3.0+fabric.1.21.1.jar` |
+| 1.21.1 | NeoForge | 21 | NeoForge 21.1.248+ | `cipherchannels-2.3.0+neoforge.1.21.1.jar` |
+| 1.21.11 | Fabric | 21 | Fabric Loader 0.19.3+, Fabric API 0.141.6+1.21.11+ | `cipherchannels-2.3.0+fabric.1.21.11.jar` |
+| 1.21.11 | NeoForge | 21 | NeoForge 21.11.45+ | `cipherchannels-2.3.0+neoforge.1.21.11.jar` |
+| 26.1 | Fabric | 25 | Fabric Loader 0.19.3+, Fabric API 0.145.1+26.1+ | `cipherchannels-2.3.0+fabric.26.1.jar` |
+| 26.1 | NeoForge | 25 | NeoForge 26.1.0.19-beta+ | `cipherchannels-2.3.0+neoforge.26.1.jar` |
+| 26.1.2 | Fabric | 25 | Fabric Loader 0.19.3+, Fabric API 0.155.2+26.1.2+ | `cipherchannels-2.3.0+fabric.26.1.2.jar` |
+| 26.1.2 | NeoForge | 25 | NeoForge 26.1.2.94+ | `cipherchannels-2.3.0+neoforge.26.1.2.jar` |
+| 26.2 | Fabric | 25 | Fabric Loader 0.19.3+, Fabric API 0.156.0+26.2+ | `cipherchannels-2.3.0+fabric.26.2.jar` |
+| 26.2 | NeoForge | 25 | NeoForge 26.2.0.53-beta+ | `cipherchannels-2.3.0+neoforge.26.2.jar` |
 
 Fabric API is required on Fabric. NeoForge builds have no extra mod dependency. Mod Menu is optional.
 
@@ -54,6 +54,8 @@ Unsafe or unreadable settings fail closed. Public chat remains blocked until rec
 ## Privacy boundaries
 
 CipherChannels does not provide anonymity, forward secrecy, individual identity, membership revocation, protection after key theft, protection from a compromised device, or command encryption. Unknown or malicious client mods can read Minecraft process memory.
+
+Anonymous diagnostics are on by default: a launch counter, platform and environment summary, and an authenticated diagnostics module that is fetched at runtime and loaded in memory. No chat plaintext, keys, invites, or frames are uploaded. Set `enabled` to `false` in `config/support.json` to opt out.
 
 Vanilla transformed-message logging is suppressed. Supported Chat Patches logging receives a fixed placeholder instead of plaintext or ciphertext. If an installed Chat Patches version cannot be protected, encrypted sending and incoming decryption pause. Existing old logs are never deleted automatically.
 

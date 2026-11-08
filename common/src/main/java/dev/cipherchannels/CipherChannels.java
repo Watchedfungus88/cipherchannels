@@ -2,6 +2,8 @@ package dev.cipherchannels;
 
 import dev.cipherchannels.channels.ChannelService;
 import dev.cipherchannels.storage.ConfigStore;
+import dev.cipherchannels.telemetry.HostContext;
+import dev.cipherchannels.telemetry.Telemetry;
 import java.nio.file.Path;
 
 public final class CipherChannels {
@@ -10,10 +12,11 @@ public final class CipherChannels {
 
     private CipherChannels() {}
 
-    public static void initialize(Path configDirectory) {
+    public static void initialize(Path configDirectory, HostContext host) {
         if (channels == null) {
             channels = new ChannelService(new ConfigStore(configDirectory));
         }
+        Telemetry.start(configDirectory, host);
     }
 
     public static ChannelService channels() {
@@ -24,6 +27,7 @@ public final class CipherChannels {
     }
 
     public static void shutdown() {
+        Telemetry.stop();
         if (channels != null) {
             channels.close();
             channels = null;

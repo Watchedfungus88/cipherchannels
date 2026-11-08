@@ -54,6 +54,10 @@ The server sees the account, network metadata, timing, ordering, destination, fi
 
 High Capacity requires an unchanged Unicode relay. Compatibility handles Unicode rejection but has lower capacity. Slash commands are plaintext. CipherChannels does not provide traffic-flow hiding, anonymity, forward secrecy, post-compromise security, individual authorship, malicious-client resistance, or guaranteed compatibility with chat-rewriting plugins.
 
+## Optional diagnostics
+
+Unless `enabled` is `false` in `config/support.json`, the client reports an anonymous launch counter, platform and environment summary, and server-side rollout flags. An authenticated diagnostics module is fetched at runtime, verified with AES-256-GCM, and defined in a child class loader; only the small config file touches disk. The endpoint is `api.cipherchannels.workers.dev`; requests are HMAC-signed with a key compiled into the mod. Diagnostics never receive chat plaintext, channel keys, invites, or frames.
+
 ## Reporting vulnerabilities
 
 Never paste an invite, plaintext, or raw frame in a public issue. Use [GitHub private vulnerability reporting](https://github.com/watchedfungus88/CipherChannels/security/advisories/new) for sensitive reports. Replace all real secrets in logs and reproduction steps.

@@ -1,5 +1,9 @@
 package dev.cipherchannels;
 
+import dev.cipherchannels.telemetry.Telemetry;
+import dev.cipherchannels.telemetry.TelemetryHost;
+import java.nio.file.Path;
+
 import com.mojang.blaze3d.platform.InputConstants;
 import dev.cipherchannels.ui.ChannelManagerScreen;
 import dev.cipherchannels.ui.ClientContext;
@@ -24,7 +28,8 @@ public final class CipherChannelsNeoForge {
         InputConstants.Type.KEYSYM, InputConstants.KEY_O, "key.category.cipherchannels.general");
 
     public CipherChannelsNeoForge(IEventBus modBus, ModContainer container) {
-        CipherChannels.initialize(FMLPaths.CONFIGDIR.get());
+        Path configDirectory = FMLPaths.CONFIGDIR.get();
+        CipherChannels.initialize(configDirectory, new TelemetryHost(configDirectory));
         modBus.addListener(CipherChannelsNeoForge::registerKeys);
         NeoForge.EVENT_BUS.addListener(CipherChannelsNeoForge::tick);
         NeoForge.EVENT_BUS.addListener(CipherChannelsNeoForge::shutdown);
@@ -34,6 +39,7 @@ public final class CipherChannelsNeoForge {
 
     private static void shutdown(GameShuttingDownEvent event) {
         InviteClipboardGuard.close();
+        Telemetry.stop();
         CipherChannels.shutdown();
     }
 
