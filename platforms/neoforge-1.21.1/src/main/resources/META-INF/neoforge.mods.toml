@@ -8,7 +8,7 @@ version="${version}"
 displayName="CipherChannels"
 logoFile="assets/cipherchannels/icon.png"
 authors="CipherChannels contributors"
-description='''Markerless fixed-size encrypted public chat for players who share a secret channel invite.'''
+description='''Encrypted Minecraft chat with shared secret invites. No server plugin needed.'''
 
 [[mixins]]
 config="cipherchannels.mixins.json"

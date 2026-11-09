@@ -1,11 +1,11 @@
 name: Bug report
-description: Report a reproducible CipherChannels problem
+description: Report a problem with CipherChannels
 title: "[Bug] "
 labels: [bug]
 body:
   - type: markdown
     attributes:
-      value: Never paste a channel invite, plaintext message, or raw encrypted frame here. Replace them with safe placeholders.
+      value: Do not share real invites, message contents, or raw encrypted messages. Replace them with placeholders in your report, logs, and screenshots.
   - type: dropdown
     id: loader
     attributes:
@@ -24,18 +24,18 @@ body:
     id: description
     attributes:
       label: What happened?
-      description: Include safe reproduction steps and remove secrets from logs.
+      description: Explain what you expected, what happened instead, and how to reproduce it. Remove secrets from any logs.
     validations:
       required: true
   - type: textarea
     id: mods
     attributes:
       label: Other client mods
-      description: List chat, logging, and UI mods and their versions.
+      description: Include the names and versions of any chat, logging, or UI mods you use.
   - type: checkboxes
     id: safety
     attributes:
-      label: Secret check
+      label: Before you submit
       options:
-        - label: I removed invites, plaintext, and raw frames from everything attached.
+        - label: I removed real invites, message contents, and raw encrypted messages from the report and all attachments.
           required: true

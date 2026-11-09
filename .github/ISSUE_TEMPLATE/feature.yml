@@ -1,21 +1,21 @@
 name: Feature request
-description: Suggest a focused CipherChannels improvement
+description: Suggest an improvement to CipherChannels
 title: "[Feature] "
 labels: [enhancement]
 body:
   - type: markdown
     attributes:
-      value: Never paste a channel invite, plaintext message, or raw encrypted frame here.
+      value: Do not share real invites, message contents, or raw encrypted messages in this request.
   - type: textarea
     id: problem
     attributes:
-      label: Problem
-      description: What ordinary-user problem should this solve?
+      label: What would you like to improve?
+      description: Describe what is difficult or missing and how it affects you.
     validations:
       required: true
   - type: textarea
     id: proposal
     attributes:
-      label: Proposed behavior
+      label: How should it work?
     validations:
       required: true

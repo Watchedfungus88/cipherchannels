@@ -1,65 +1,97 @@
 # Security
 
-CipherChannels provides shared-secret confidentiality and authentication for complete public-chat messages. It is not an identity system, anonymous network, or full secure messenger.
+CipherChannels encrypts normal Minecraft chat messages using a shared channel key. It protects message contents and checks that a sender has the key. It does not identify individual senders, hide network traffic, or replace a full secure messenger.
 
-## Construction
+## Encryption
 
-Each channel begins with 32 random bytes from Java `SecureRandom`. HKDF-SHA-256 derives separate AES-256-GCM encryption and HMAC-SHA-256 recognition keys under v2-only domains. Every frame has a fresh random 96-bit nonce, a rotating authenticated 64-bit recognition hint, and a 128-bit GCM tag.
+Each channel starts with 32 random bytes from Java `SecureRandom`. HKDF-SHA-256 derives separate AES-256-GCM encryption and HMAC-SHA-256 recognition keys using protocol-v2 domains. Every frame has a fresh random 96-bit nonce, an authenticated 64-bit recognition hint that changes with the nonce, and a 128-bit GCM tag.
 
-The fixed encrypted record is content, an authenticated v2 control byte, then zero padding. Raw strict UTF-8 uses `0x20`; raw DEFLATE followed by strict UTF-8 uses `0x21`. Invalid controls, malformed UTF-8, truncated or trailing compressed data, and expansion beyond 4,096 bytes are rejected.
+The encrypted record contains the message, an authenticated v2 control byte, and zero padding. Control `0x20` selects strict UTF-8. Control `0x21` selects raw DEFLATE followed by strict UTF-8 decoding. Invalid controls, malformed UTF-8, incomplete or trailing compressed data, and decompressed text over 4,096 bytes are rejected.
 
-Receivers try no more than 16 live keys, active first. Recognition hints are compared in constant time before AES-GCM. There is no stable public channel identifier. Markerless fixed-size traffic is still recognizable as encrypted-looking traffic.
+Receivers try at most 16 loaded keys, starting with the active channel. Recognition hints are compared in constant time before AES-GCM decryption. There is no stable public channel identifier, but fixed-size encrypted traffic can still be recognized as such.
 
-The complete construction is in [PROTOCOL.md](PROTOCOL.md). Public deterministic fixtures are in [vectors/protocol-vectors-v2.json](vectors/protocol-vectors-v2.json). They support interoperability testing and do not imply an independent audit.
+The full construction is in [Protocol](PROTOCOL.md). The [test vectors](vectors/protocol-vectors-v2.json) provide public, deterministic examples for compatible implementations. They are not an independent security audit.
 
-## Fail-closed behavior
+## Blocked sends
 
-Enabled encryption never falls back to plaintext. Missing keys, strict-binding mismatches, locked configuration, known-unprotected chat logging, malformed drafts, capacity failures, and encryption errors block the send and preserve the draft.
+When encryption is on, CipherChannels never falls back to unencrypted public chat. A missing key, server-lock mismatch, locked settings, an unprotected known chat logger, invalid text, a message that does not fit, or an encryption error blocks the send and leaves the draft in place.
 
-Configuration schema v5 stores no secrets. Versions 3 and 4 migrate automatically, leaving every channel session-only until explicitly opted in. Version 3 also drops its old verification label. Channel UUIDs, names, fingerprints, active selection, bindings, transport overrides, and enabled intent are preserved. Version 1 or 2 settings are preserved as timestamped `.pre-2.0` files and replaced with an empty disabled v5 configuration.
+Slash commands are an explicit exception: they are sent unencrypted because the server must read them. The UI warns before sending one.
 
-A corrupt primary tries a valid backup first. Unrecoverable or unsupported newer settings lock CipherChannels and block public chat until the user restores valid settings or explicitly preserves and resets them. Newer files are left untouched. Reset is explicit because it permits plaintext mode again.
+## Settings and recovery
+
+Settings schema v5 contains no secrets. Schema v3 and v4 settings update automatically, with **Remember Invite** off for every existing channel. Migration preserves channel UUIDs, names, fingerprints, the active channel, server locks, chat formats, and the saved encryption setting. Migration from v3 also removes the old verification labels.
+
+Schema v1 and v2 settings are incompatible. They are kept as timestamped `.pre-2.0` files and replaced with empty v5 settings with encryption off.
+
+If the main settings file is damaged, CipherChannels tries a valid backup. If neither file can be used, or the files require a newer version of the mod, CipherChannels locks its settings and blocks public chat. Files from newer versions are left untouched.
+
+You must restore valid settings or explicitly keep copies of the old files and reset them. Resetting requires confirmation because it turns encryption off and allows unencrypted chat again.
 
 ## Replay protection
 
-Only authenticated frames enter the replay cache. Its identifier combines the channel fingerprint with a SHA-256 digest of the complete transport frame. It holds at most 4,096 entries and expires each after six hours.
+Only authenticated frames enter the replay cache. Each entry combines the channel fingerprint with a SHA-256 digest of the complete transport frame. The cache holds at most 4,096 entries, each for up to six hours.
 
-Replay history is deliberately session-only and is never written to disk. Restarting Minecraft clears it, so recorded ciphertext can be replayed after restart. Forgetting a channel or rotating its key removes matching entries immediately.
+Replay history is kept in memory and never written to disk. Restarting Minecraft clears it, so a recorded message may be accepted again after a restart. Forgetting a channel or rotating its key immediately removes that channel's entries.
 
-## Keys, invites, and authorship
+## Invites and shared-key identity
 
-The `CC2` invite contains the channel master key. Keys are session-only by default and their in-memory copies are best-effort wiped when forgotten, rotated, or Minecraft closes. Persistent configuration contains no keys, invites, plaintext, ciphertext, or replay history.
+A `CC2` invite contains the channel's master key. By default, keys are kept only for the current session. CipherChannels makes a best-effort attempt to wipe its in-memory copies when a key is forgotten or rotated, or when Minecraft closes. Settings files never contain keys, invites, plaintext, ciphertext, or replay history.
 
-`Remember Invite` explicitly opts one channel into native OS credential storage: macOS Keychain, local-machine persistence in Windows Credential Manager, or the default persistent Linux Secret Service collection through libsecret. No extra mod password or plaintext-file fallback is used. Credential names contain a hash of the absolute configuration-directory path and the local channel UUID, isolating Minecraft profiles without including channel names or invites.
+Anyone with an invite can read and create valid channel messages. The `[CC]` mark proves possession of the shared key, not a person's identity. Matching full fingerprints confirms that two people have the same key. CipherChannels does not store identity checks or trust decisions.
 
-Remembered keys load off the game thread, are checked against the saved fingerprint, and do not change channel selection, bindings, or encryption intent. Missing, denied, or invalid credentials leave enabled sending blocked. Manually loading the correct invite repairs its saved copy. Turning remembering off deletes the stored copy but keeps the current session key. Forgetting deletes it; rotation replaces it and preserves the opt-in. Storage failures reject the operation; failed settings writes attempt to restore the previous credential. A process crash or an unavailable store during rollback can leave an orphaned OS entry. Resetting corrupt settings cannot identify credentials whose metadata is no longer readable; those entries can be removed through the OS credential manager.
+There is no forward secrecy. Someone who records encrypted messages and later obtains the invite may be able to decrypt them. There is also no way to remove one person's access while keeping the same key.
 
-OS storage protects keys at rest under the OS account's security policy. It does not add forward secrecy or protect against malicious software running with sufficient access as the same user, a compromised OS, or another client mod. The OS may show its own permission or unlock prompt.
+If you suspect an invite has been exposed, rotate the channel key, share the replacement privately outside the old channel, and stop using the old key. CipherChannels never sends a replacement invite through the old channel.
 
-Everyone with an invite can read and create valid messages. `[CC]` authenticates shared-key possession, not a person. A matching fingerprint confirms that two people have the same shared key, but CipherChannels does not record trust or identity.
+## Remembered invites
 
-There is no forward secrecy: someone who records frames and later obtains the invite may decrypt those recorded messages. Removing a person from a group is not supported. If compromise is suspected, rotate the channel key, distribute the new invite out of band, and stop using the old one. CipherChannels never distributes a replacement through the old channel.
+**Remember Invite** is an opt-in setting for each channel. It uses:
 
-## Clipboard and logs
+- macOS Keychain.
+- Windows Credential Manager, with local-machine persistence.
+- The default persistent Linux Secret Service collection, through libsecret.
 
-Invite input is masked by default. After copying, CipherChannels retains only an in-memory digest. A matching invite is cleared when its channel is forgotten or rotated, or on normal shutdown. Unrelated clipboard contents are never erased.
+There is no separate mod password and no plaintext-file fallback. The OS may show its own permission or unlock prompt.
 
-Vanilla logging of transformed chat text is suppressed. With a compatible Chat Patches logger enabled, sent and incoming encrypted history is replaced with:
+Credential names use a hash of the absolute configuration-directory path and the local channel UUID. This separates Minecraft profiles without putting channel names or invites in credential names.
+
+Remembered keys load off the game thread and are checked against the saved fingerprint. Loading does not change the active channel, server locks, or the saved encryption setting. If a credential is missing, access is denied, or the key is invalid, encrypted sending stays blocked. Manually loading the correct invite repairs its saved copy.
+
+Turning **Remember Invite** off deletes the saved copy but keeps the current session key. Forgetting a channel deletes its credential. Rotating a key replaces the credential and keeps remembering enabled if it was already on.
+
+A storage failure rejects the operation. If saving settings fails after a credential change, CipherChannels attempts to restore the previous credential. A crash or an unavailable store during rollback can leave an orphaned OS entry. Resetting unreadable settings cannot identify entries whose metadata has been lost; remove those through your OS credential manager.
+
+OS storage protects keys at rest according to your OS account's security policy. It does not protect against a compromised OS, malicious software with sufficient access as your user, or other client mods. It does not add forward secrecy.
+
+## Clipboard
+
+Invite input is hidden by default. After copying an invite, CipherChannels keeps only an in-memory digest of the most recent invite it copied. It clears a matching clipboard value when that invite's channel is forgotten or rotated, or when Minecraft shuts down normally. It does not erase unrelated clipboard contents.
+
+There is no timed clipboard expiry. A crash may leave the invite on the clipboard, and clipboard history or synced copies are not cleared.
+
+## Chat logs
+
+CipherChannels suppresses vanilla logging of chat text it transforms. When a compatible Chat Patches logger is enabled, sent and received encrypted-message history is replaced with:
 
 ```text
 [CipherChannels encrypted message intentionally not stored]
 ```
 
-Neither plaintext nor the raw frame is intentionally persisted. Compatibility hooks are checked at startup. A detected, enabled Chat Patches logger that cannot be protected blocks encrypted sending and pauses incoming decryption. Old `logs/chatlog*.json` files may contain plaintext from earlier releases; CipherChannels never scans or deletes them.
+Neither the plaintext nor the raw encrypted frame is intentionally saved. Compatibility hooks are checked at startup. If an enabled Chat Patches logger is detected but cannot be protected, encrypted sending and incoming decryption pause.
 
-Unknown or malicious client mods can inspect Minecraft memory before CipherChannels can sanitize it. The operating system, screen recorders, accessibility tools, servers, other players, and compromised devices remain outside this boundary.
+Old `logs/chatlog*.json` files may contain plaintext from earlier releases. CipherChannels does not scan or delete them.
 
-## Metadata and transport limits
+Other client mods can read Minecraft's memory before CipherChannels can sanitize it. A compromised device, the OS, screen recorders, accessibility tools, servers, and other players are outside this protection.
 
-The server sees the account, network metadata, timing, ordering, destination, fixed ciphertext size, and transport alphabet. It can block, delay, reorder, delete, replace, normalize, truncate, or replay delivery. Without the invite it cannot read or forge accepted plaintext.
+## Metadata and server behavior
 
-High Capacity requires an unchanged Unicode relay. Compatibility handles Unicode rejection but has lower capacity. Slash commands are plaintext. CipherChannels does not provide traffic-flow hiding, anonymity, forward secrecy, post-compromise security, individual authorship, malicious-client resistance, or guaranteed compatibility with chat-rewriting plugins.
+The server sees your account, network metadata, timing, destination, message order, transport alphabet, and the fixed ciphertext size. It can block, delay, reorder, delete, replace, normalize, truncate, or replay messages. Without the invite, it cannot read authenticated plaintext or forge a message accepted by channel members.
 
-## Reporting vulnerabilities
+High Capacity needs the server to relay Unicode text unchanged. Compatibility avoids Unicode-specific rejection by using ASCII, but carries less text. Neither format can guarantee compatibility with plugins that rewrite chat.
 
-Never paste an invite, plaintext, or raw frame in a public issue. Use [GitHub private vulnerability reporting](https://github.com/watchedfungus88/CipherChannels/security/advisories/new) for sensitive reports. Replace all real secrets in logs and reproduction steps.
+CipherChannels does not hide traffic patterns, provide anonymity, verify individual authors, resist malicious code in the client, or provide post-compromise security. Commands remain unencrypted.
+
+## Report a vulnerability
+
+Do not post real invites, message contents, or raw encrypted frames in a public issue. Use [GitHub's private vulnerability reporting](https://github.com/Watchedfungus88/cipherchannels/security/advisories/new) for sensitive reports. Replace real secrets with placeholders in logs, screenshots, and reproduction steps.

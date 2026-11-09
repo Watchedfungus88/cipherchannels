@@ -3,7 +3,7 @@
   "id": "cipherchannels",
   "version": "${version}",
   "name": "CipherChannels",
-  "description": "Markerless fixed-size encrypted public chat for players who share a secret channel invite.",
+  "description": "Encrypted Minecraft chat with shared secret invites. No server plugin needed.",
   "authors": ["CipherChannels contributors"],
   "license": "All Rights Reserved",
   "icon": "assets/cipherchannels/icon.png",

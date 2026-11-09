@@ -2,72 +2,87 @@
 
 ![CipherChannels icon](assets/cipherchannels-icon.png)
 
-CipherChannels is a client-only Fabric and NeoForge mod that encrypts complete Minecraft public-chat messages between people who share a secret invite. The server needs no plugin. It relays and signs a fixed 256-character ciphertext instead of receiving the plaintext.
+Encrypted chat in Minecraft, without a server plugin.
 
-CipherChannels 2.3 uses the same `CC2` protocol, channels, and invites as 2.0–2.2. Existing settings migrate automatically. CipherChannels 1.x remains incompatible.
+Create a channel, share its secret invite with friends, and use the normal chat box. When encrypted chat is on, CipherChannels encrypts your messages before Minecraft signs and sends them. The server receives encrypted text instead of the original message.
 
-## Quick start
+Everyone in a channel needs the mod and the same invite. CipherChannels runs on your client and is available for Fabric and NeoForge.
 
-1. Open CipherChannels from chat or its configurable key, then choose `Create…` or `Import Invite…`.
-2. Open `Channel Settings…` to copy or load the secret invite. Share it privately; anyone with it can read and create channel messages.
-3. Select the channel, choose `Use Channel`, then turn `Encrypted Chat` on.
+## Install
 
-Keys are session-only by default. To load a channel automatically after restarting, turn on `Remember Invite` in its existing settings. This saves the key in your OS credential store, not in Minecraft's settings files.
+[Download the latest release](https://github.com/Watchedfungus88/cipherchannels/releases/latest) and put **one JAR** in your instance's `mods` folder. Choose the file that matches both your Minecraft version and loader.
 
-## Downloads
+Supported Minecraft versions: **1.21.1, 1.21.11, 26.1, 26.1.2, and 26.2**.
 
-Install exactly one JAR matching the Minecraft version and loader.
+- Minecraft 1.21.x needs Java 21; 26.x needs Java 25.
+- Fabric builds also need Fabric API and Fabric Loader 0.19.3 or newer.
+- NeoForge builds need no additional mod.
+- Mod Menu is optional.
 
-| Minecraft | Loader | Java | Required runtime | JAR |
-|---|---|---:|---|---|
-| 1.21.1 | Fabric | 21 | Fabric Loader 0.19.3+, Fabric API 0.116.15+1.21.1+ | `cipherchannels-2.3.0+fabric.1.21.1.jar` |
-| 1.21.1 | NeoForge | 21 | NeoForge 21.1.248+ | `cipherchannels-2.3.0+neoforge.1.21.1.jar` |
-| 1.21.11 | Fabric | 21 | Fabric Loader 0.19.3+, Fabric API 0.141.6+1.21.11+ | `cipherchannels-2.3.0+fabric.1.21.11.jar` |
-| 1.21.11 | NeoForge | 21 | NeoForge 21.11.45+ | `cipherchannels-2.3.0+neoforge.1.21.11.jar` |
-| 26.1 | Fabric | 25 | Fabric Loader 0.19.3+, Fabric API 0.145.1+26.1+ | `cipherchannels-2.3.0+fabric.26.1.jar` |
-| 26.1 | NeoForge | 25 | NeoForge 26.1.0.19-beta+ | `cipherchannels-2.3.0+neoforge.26.1.jar` |
-| 26.1.2 | Fabric | 25 | Fabric Loader 0.19.3+, Fabric API 0.155.2+26.1.2+ | `cipherchannels-2.3.0+fabric.26.1.2.jar` |
-| 26.1.2 | NeoForge | 25 | NeoForge 26.1.2.94+ | `cipherchannels-2.3.0+neoforge.26.1.2.jar` |
-| 26.2 | Fabric | 25 | Fabric Loader 0.19.3+, Fabric API 0.156.0+26.2+ | `cipherchannels-2.3.0+fabric.26.2.jar` |
-| 26.2 | NeoForge | 25 | NeoForge 26.2.0.53-beta+ | `cipherchannels-2.3.0+neoforge.26.2.jar` |
+See [Compatibility](COMPATIBILITY.md#supported-versions) for exact filenames and minimum dependency versions. The server must pass encrypted messages through without changing their text.
 
-Fabric API is required on Fabric. NeoForge builds have no extra mod dependency. Mod Menu is optional.
+## Get started
 
-## What the server sees
+1. Open CipherChannels from the chat screen or its configurable key binding. Choose **Create…** to make a channel, or **Import Invite…** to join one.
+2. To share a channel, open **Channel Settings…** and choose **Copy Invite**. Send it privately. Anyone with the invite can read and send messages in that channel.
+3. Select the channel, choose **Use Channel**, and turn **Encrypted Chat** on.
 
-The server sees your account, timing, destination, ordering, selected transport alphabet, and one fixed-size 256-character ciphertext. It can block, delay, reorder, delete, replace, or replay delivery. It cannot read authenticated plaintext or create a frame accepted by channel holders without the invite. Minecraft signs the ciphertext, not the plaintext.
+Keys stay loaded only until you close Minecraft, unless you turn on **Remember Invite** in the channel's settings. Keep a private copy of the invite so you can load it again.
 
-High Capacity is the default. It guarantees 443 raw UTF-8 bytes and can carry compressible text up to the 4,096-byte restored-text limit. Compatibility is a manually selected per-server ASCII fallback with 155 raw bytes. CipherChannels never truncates, splits, or falls back to plaintext.
+## Chat formats
 
-Slash commands remain plaintext because the server must interpret them. The UI warns before sending one.
+**High Capacity** is the default. It carries 443 bytes of uncompressed UTF-8 text. Compressible messages can be longer, up to 4,096 UTF-8 bytes after decompression.
 
-## Keys and recovery
+If a server rejects High Capacity messages, choose **Compatibility** in the channel's settings. It uses ASCII and carries 155 uncompressed bytes. Your choice is saved per server.
 
-The invite is the complete 256-bit shared secret. Anyone holding it can read and create valid channel messages. `[CC]` proves possession of that shared secret, not who authored a message.
+CipherChannels never cuts a message short, splits it into several messages, or sends it unencrypted as a fallback. If a message cannot be sent, it stays in the chat box with a warning.
 
-Remembered keys use macOS Keychain, Windows Credential Manager, or Linux Secret Service through libsecret and an installed keyring. The OS may ask for access or unlocking. If storage is unavailable, no plaintext file fallback is used. Turning `Remember Invite` off removes the saved copy without unloading the current session key. Forgetting removes it; rotating replaces it.
+**Slash commands are not encrypted.** The server needs to read them, and CipherChannels warns you before sending one.
 
-Replay protection remains session-only: up to 4,096 authenticated frames for six hours, cleared by restart. Persistent settings contain only channel metadata, the remember-invite flag, transport overrides, the active selection, and enabled intent.
+## Saved invites
 
-Fingerprints are optional comparison aids. Matching the full fingerprint confirms the same shared key; CipherChannels does not store a trust decision. If an invite may be exposed, rotate the channel key, distribute the new invite privately, and stop using the old one.
+Keys are session-only by default. **Remember Invite** saves a channel's key in macOS Keychain, Windows Credential Manager, or Linux Secret Service, then loads it when Minecraft starts. Linux needs libsecret and an available desktop keyring. Your OS may ask you to allow access or unlock the store.
 
-Unsafe or unreadable settings fail closed. Public chat remains blocked until recovery or an explicit reset permits plaintext mode.
+The key is never saved in Minecraft's settings files. If OS storage is unavailable, there is no plaintext-file fallback.
 
-## Privacy boundaries
+Turning **Remember Invite** off deletes the saved copy but keeps the key loaded for the current session. Forgetting a channel deletes its saved invite. Rotating a key replaces the saved invite if remembering is on.
 
-CipherChannels does not provide anonymity, forward secrecy, individual identity, membership revocation, protection after key theft, protection from a compromised device, or command encryption. Unknown or malicious client mods can read Minecraft process memory.
+## Before you share an invite
 
-Vanilla transformed-message logging is suppressed. Supported Chat Patches logging receives a fixed placeholder instead of plaintext or ciphertext. If an installed Chat Patches version cannot be protected, encrypted sending and incoming decryption pause. Existing old logs are never deleted automatically.
+An invite contains the channel's 256-bit secret key. Treat it like a password. Anyone with it can read and send messages. The `[CC]` mark confirms the shared key, not a person's identity. Matching full fingerprints means you have the same key.
 
-## Build and verify
+If an invite has been exposed, rotate the key and share the replacement privately outside the old channel. You cannot revoke one person's access while keeping the same key.
 
-Use Java 25 to run the checked-in Gradle wrapper; Java 21 targets use a toolchain automatically.
+The server still knows who is connected, when messages are sent, and where they go. CipherChannels does not make you anonymous or protect against malicious client mods or a compromised device. Someone who gets an invite later may also be able to decrypt older recorded messages.
+
+CipherChannels keeps transformed chat out of vanilla logs and replaces messages with a placeholder in supported Chat Patches logs. If an enabled Chat Patches logger cannot be protected, encrypted chat pauses. It does not delete old logs or control what other mods record. See [Security](SECURITY.md) for the full security model, replay limits, logging behavior, and settings recovery.
+
+## Version compatibility
+
+CipherChannels 2.3 uses the same `CC2` protocol, channels, and invites as 2.0–2.2. Existing settings update automatically. CipherChannels 1.x is not compatible.
+
+See [Compatibility](COMPATIBILITY.md) for tested mod integrations.
+
+## Build from source
+
+Use Java 25 to run the included Gradle wrapper. Gradle selects a Java 21 toolchain for targets that need it.
 
 ```sh
 ./gradlew clean test releaseBuild --no-daemon
 ./scripts/reproducible-build.sh
 ```
 
-Release files appear in `build/release`. The build validates all ten JARs, creates the source ZIP, and writes `SHA256SUMS`. Dependency verification and the wrapper distribution checksum are enabled. See [dependency verification notes](gradle/DEPENDENCY_VERIFICATION.md) for verified Fabric archive variants. Tagged GitHub builds generate provenance attestations.
+The build checks all ten JARs and writes them to `build/release`, along with a source ZIP and `SHA256SUMS`. The second command builds the source archive twice in separate directories and compares their checksums.
 
-See [Protocol](PROTOCOL.md), [Security](SECURITY.md), [Compatibility](COMPATIBILITY.md), [Changelog](CHANGELOG.md), [interoperability vectors](vectors/README.md), and [third-party notices](THIRD_PARTY_NOTICES.md). CipherChannels is [All Rights Reserved](LICENSE).
+Dependency verification and the Gradle distribution checksum stay enabled. See the [dependency verification notes](gradle/DEPENDENCY_VERIFICATION.md) for the accepted Fabric archive variants. Tagged GitHub builds also produce provenance attestations.
+
+## More information
+
+- [Protocol specification](PROTOCOL.md)
+- [Security](SECURITY.md)
+- [Compatibility](COMPATIBILITY.md)
+- [Changelog](CHANGELOG.md)
+- [Interoperability test vectors](vectors/README.md)
+- [Third-party notices](THIRD_PARTY_NOTICES.md)
+
+CipherChannels is [All Rights Reserved](LICENSE).
