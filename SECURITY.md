@@ -16,7 +16,7 @@ The complete construction is in [PROTOCOL.md](PROTOCOL.md). Public deterministic
 
 Enabled encryption never falls back to plaintext. Missing keys, strict-binding mismatches, locked configuration, known-unprotected chat logging, malformed drafts, capacity failures, and encryption errors block the send and preserve the draft.
 
-Configuration schema v4 stores no secrets. Version 3 migrates automatically by dropping only its old verification label. Channel UUIDs, names, fingerprints, active selection, bindings, transport overrides, and enabled intent are preserved. Version 1 or 2 settings are preserved as timestamped `.pre-2.0` files and replaced with an empty disabled v4 configuration.
+Configuration schema v5 stores no secrets. Versions 3 and 4 migrate automatically, leaving every channel session-only until explicitly opted in. Version 3 also drops its old verification label. Channel UUIDs, names, fingerprints, active selection, bindings, transport overrides, and enabled intent are preserved. Version 1 or 2 settings are preserved as timestamped `.pre-2.0` files and replaced with an empty disabled v5 configuration.
 
 A corrupt primary tries a valid backup first. Unrecoverable or unsupported newer settings lock CipherChannels and block public chat until the user restores valid settings or explicitly preserves and resets them. Newer files are left untouched. Reset is explicit because it permits plaintext mode again.
 
@@ -28,7 +28,13 @@ Replay history is deliberately session-only and is never written to disk. Restar
 
 ## Keys, invites, and authorship
 
-The `CC2` invite contains the channel master key. Raw keys are session-only and are best-effort wiped when forgotten, rotated, or Minecraft closes. Persistent configuration contains no keys, invites, plaintext, ciphertext, or replay history.
+The `CC2` invite contains the channel master key. Keys are session-only by default and their in-memory copies are best-effort wiped when forgotten, rotated, or Minecraft closes. Persistent configuration contains no keys, invites, plaintext, ciphertext, or replay history.
+
+`Remember Invite` explicitly opts one channel into native OS credential storage: macOS Keychain, local-machine persistence in Windows Credential Manager, or the default persistent Linux Secret Service collection through libsecret. No extra mod password or plaintext-file fallback is used. Credential names contain a hash of the absolute configuration-directory path and the local channel UUID, isolating Minecraft profiles without including channel names or invites.
+
+Remembered keys load off the game thread, are checked against the saved fingerprint, and do not change channel selection, bindings, or encryption intent. Missing, denied, or invalid credentials leave enabled sending blocked. Manually loading the correct invite repairs its saved copy. Turning remembering off deletes the stored copy but keeps the current session key. Forgetting deletes it; rotation replaces it and preserves the opt-in. Storage failures reject the operation; failed settings writes attempt to restore the previous credential. A process crash or an unavailable store during rollback can leave an orphaned OS entry. Resetting corrupt settings cannot identify credentials whose metadata is no longer readable; those entries can be removed through the OS credential manager.
+
+OS storage protects keys at rest under the OS account's security policy. It does not add forward secrecy or protect against malicious software running with sufficient access as the same user, a compromised OS, or another client mod. The OS may show its own permission or unlock prompt.
 
 Everyone with an invite can read and create valid messages. `[CC]` authenticates shared-key possession, not a person. A matching fingerprint confirms that two people have the same shared key, but CipherChannels does not record trust or identity.
 

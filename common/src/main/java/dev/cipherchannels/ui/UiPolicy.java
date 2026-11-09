@@ -12,6 +12,11 @@ public final class UiPolicy {
         return ((int) Math.round(clamped * 255.0D)) << 24;
     }
 
+    public static int chatStatusX(int screenWidth, int buttonX, int buttonWidth, int textWidth) {
+        int centered = buttonX + (buttonWidth - textWidth) / 2;
+        return Math.max(4, Math.min(centered, screenWidth - textWidth - 4));
+    }
+
     public static boolean validChannelName(String value) {
         if (value == null) return false;
         String trimmed = value.trim();

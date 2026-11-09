@@ -5,10 +5,11 @@ import dev.cipherchannels.channels.ChannelRecord;
 import dev.cipherchannels.channels.ServerBinding;
 import dev.cipherchannels.protocol.TransportMode;
 import java.util.UUID;
-import net.minecraft.ChatFormatting;
+import java.util.concurrent.CompletableFuture;
+import java.util.function.Consumer;
+import java.util.function.Supplier;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.Button;
-import net.minecraft.client.gui.components.MultiLineTextWidget;
 import net.minecraft.client.gui.components.StringWidget;
 import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.screens.ConfirmScreen;
@@ -19,6 +20,8 @@ final class ChannelSettingsScreen extends SettingsScreenBase {
     private final ChannelManagerScreen parent;
     private final ContentScroller scroller = new ContentScroller();
     private UUID channelId;
+    private long keyRevision;
+    private boolean actionPending;
 
     ChannelSettingsScreen(ChannelManagerScreen parent, UUID channelId) {
         super(Component.translatable("cipherchannels.settings.title"));
@@ -28,6 +31,7 @@ final class ChannelSettingsScreen extends SettingsScreenBase {
 
     @Override
     protected void init() {
+        keyRevision = CipherChannels.channels().keyRevision();
         ChannelRecord channel = record();
         if (channel == null) {
             ClientContext.setScreen(parent);
@@ -40,86 +44,75 @@ final class ChannelSettingsScreen extends SettingsScreenBase {
             font.width(screenTitle), font.lineHeight, screenTitle, font));
         scroller.reset(34, height - 34);
         int y = 38;
-
-        y = heading(left, y, panelWidth, "cipherchannels.settings.access");
-        y = text(left, y, panelWidth, Component.translatable(CipherChannels.channels().hasSessionKey(channel.id())
-            ? "cipherchannels.settings.key_loaded" : "cipherchannels.settings.key_missing"),
-            CipherChannels.channels().hasSessionKey(channel.id()) ? ChatFormatting.WHITE : ChatFormatting.YELLOW);
-        if (!CipherChannels.channels().hasSessionKey(channel.id())) {
-            y = button(left, y + 4, panelWidth, Component.translatable("cipherchannels.settings.load"),
+        int half = (panelWidth - 4) / 2;
+        boolean keyLoaded = CipherChannels.channels().hasSessionKey(channel.id());
+        button(left, y, half, Component.translatable("cipherchannels.settings.rename"),
+            ignored -> ClientContext.setScreen(ChannelFormScreen.rename(this, channel.id())));
+        Button remember = add(Button.builder(Component.translatable(channel.rememberInvite()
+                ? "cipherchannels.settings.remember.on" : "cipherchannels.settings.remember.off"),
+            ignored -> toggleRemember()).bounds(left + half + 4, y, half, 20).build());
+        remember.setTooltip(Tooltip.create(Component.translatable("cipherchannels.settings.remember.tooltip")));
+        remember.active = !busy();
+        if (!channel.rememberInvite() && !keyLoaded) {
+            disable(remember, Component.translatable("cipherchannels.disabled.key_needed", channel.name()));
+        }
+        y += 24;
+        if (!keyLoaded) {
+            y = button(left, y, panelWidth, Component.translatable("cipherchannels.settings.load"),
                 ignored -> ClientContext.setScreen(ChannelFormScreen.loadKey(this, channel.id())));
         }
-
-        y = heading(left, y + 8, panelWidth, "cipherchannels.settings.share");
-        y = text(left, y, panelWidth, Component.translatable("cipherchannels.settings.fingerprint",
-            channel.fingerprint()), ChatFormatting.WHITE);
-        y = text(left, y, panelWidth, Component.translatable("cipherchannels.settings.fingerprint_help"),
-            ChatFormatting.GRAY);
-        int half = (panelWidth - 4) / 2;
-        add(Button.builder(Component.translatable("cipherchannels.settings.copy_fingerprint"),
-            ignored -> copyFingerprint(channel)).bounds(left, y + 4, half, 20).build());
         Button invite = add(Button.builder(Component.translatable("cipherchannels.settings.copy_invite"),
-            ignored -> copyInvite(channel)).bounds(left + half + 4, y + 4, half, 20).build());
+            ignored -> copyInvite(channel)).bounds(left, y, half, 20).build());
         invite.setTooltip(Tooltip.create(Component.translatable("cipherchannels.settings.invite_warning")));
-        if (!CipherChannels.channels().hasSessionKey(channel.id())) {
+        if (!keyLoaded) {
             disable(invite, Component.translatable("cipherchannels.disabled.key_needed", channel.name()));
         }
-        y += 30;
-        y = text(left, y, panelWidth, Component.translatable("cipherchannels.settings.invite_warning"),
-            ChatFormatting.YELLOW);
+        Button fingerprint = add(Button.builder(Component.translatable("cipherchannels.settings.copy_fingerprint"),
+            ignored -> copyFingerprint(channel)).bounds(left + half + 4, y, half, 20).build());
+        fingerprint.setTooltip(Tooltip.create(Component.literal(channel.fingerprint()).append("\n")
+            .append(Component.translatable("cipherchannels.settings.fingerprint_help"))));
+        y += 32;
 
-        y = heading(left, y + 8, panelWidth, "cipherchannels.settings.server");
         ServerBinding endpoint = ClientContext.currentServer();
-        y = text(left, y, panelWidth, Component.translatable("cipherchannels.settings.endpoint",
-            endpoint == null ? Component.translatable("cipherchannels.endpoint.singleplayer")
-                : endpoint.displayName()), ChatFormatting.GRAY);
         Component bindingLabel = channel.binding() == null
             ? Component.translatable("cipherchannels.settings.bind")
-            : Component.translatable("cipherchannels.settings.unbind", channel.binding().displayName());
+            : Component.translatable("cipherchannels.settings.unbind");
         Button binding = add(Button.builder(bindingLabel, ignored -> toggleBinding())
-            .bounds(left, y + 4, panelWidth, 20).build());
+            .bounds(left, y, panelWidth, 20).build());
+        binding.active = !busy();
         if (channel.binding() == null && endpoint == null) {
             disable(binding, Component.translatable("cipherchannels.disabled.multiplayer_only"));
+        } else {
+            binding.setTooltip(Tooltip.create(Component.translatable(channel.binding() == null
+                ? "cipherchannels.settings.bind_tooltip" : "cipherchannels.settings.unbind_tooltip",
+                channel.binding() == null ? endpoint.displayName() : channel.binding().displayName())));
         }
-        y += 30;
+        y += 24;
         TransportMode mode = CipherChannels.channels().transportFor(endpoint);
         Button transport = add(Button.builder(Component.translatable("cipherchannels.settings.transport",
                 ClientContext.transportName(mode)), ignored -> toggleTransport())
             .bounds(left, y, panelWidth, 20).build());
         if (endpoint == null) disable(transport, Component.translatable("cipherchannels.disabled.multiplayer_only"));
         else transport.setTooltip(Tooltip.create(Component.translatable("cipherchannels.settings.transport_tooltip")));
-        y += 28;
+        y += 32;
 
-        y = heading(left, y + 4, panelWidth, "cipherchannels.settings.local");
-        y = button(left, y, panelWidth, Component.translatable("cipherchannels.settings.rename"),
-            ignored -> ClientContext.setScreen(ChannelFormScreen.rename(this, channel.id())));
         Button rotate = add(Button.builder(Component.translatable("cipherchannels.settings.rotate"),
-            ignored -> confirmRotate(channel)).bounds(left, y + 4, half, 20).build());
+            ignored -> confirmRotate(channel)).bounds(left, y, half, 20).build());
         Button forget = add(Button.builder(Component.translatable("cipherchannels.settings.forget"),
-            ignored -> confirmForget(channel)).bounds(left + half + 4, y + 4, half, 20).build());
+            ignored -> confirmForget(channel)).bounds(left + half + 4, y, half, 20).build());
         rotate.setTooltip(Tooltip.create(Component.translatable("cipherchannels.settings.rotate_tooltip")));
         forget.setTooltip(Tooltip.create(Component.translatable("cipherchannels.settings.forget_tooltip")));
+        rotate.active = !busy();
+        forget.active = !busy();
 
         scroller.finish();
         addRenderableWidget(Button.builder(Component.translatable("gui.done"), ignored -> onClose())
             .bounds(width / 2 - 100, height - 28, 200, 20).build());
     }
 
-    private int heading(int x, int y, int width, String key) {
-        Component title = Component.translatable(key).withStyle(ChatFormatting.GRAY);
-        add(new StringWidget(x + (width - font.width(title)) / 2, y,
-            font.width(title), font.lineHeight, title, font));
-        return y + 18;
-    }
-
-    private int text(int x, int y, int width, Component value, ChatFormatting color) {
-        MultiLineTextWidget widget = add(new MultiLineTextWidget(x, y,
-            value.copy().withStyle(color), font).setMaxWidth(width).setMaxRows(3).setCentered(true));
-        return y + Math.max(12, widget.getHeight()) + 2;
-    }
-
     private int button(int x, int y, int width, Component label, Button.OnPress action) {
-        add(Button.builder(label, action).bounds(x, y, width, 20).build());
+        Button button = add(Button.builder(label, action).bounds(x, y, width, 20).build());
+        button.active = !busy();
         return y + 24;
     }
 
@@ -158,6 +151,42 @@ final class ChannelSettingsScreen extends SettingsScreenBase {
         }, "cipherchannels.toast.binding_failed");
     }
 
+    private boolean busy() {
+        return actionPending || CipherChannels.channels().storageBusy(channelId);
+    }
+
+    private void toggleRemember() {
+        ChannelRecord channel = record();
+        if (channel == null || busy()) return;
+        runStorageAction(() -> CipherChannels.channels().setRememberInvite(channel.id(), !channel.rememberInvite()),
+            ignored -> {}, "cipherchannels.toast.remember_failed");
+    }
+
+    private <T> void runStorageAction(Supplier<CompletableFuture<T>> action, Consumer<T> success, String errorKey) {
+        try {
+            actionPending = true;
+            action.get().whenComplete((result, failure) -> minecraft.execute(() -> {
+                try {
+                    if (failure == null) success.accept(result);
+                    else ClientContext.toast(Component.translatable(errorKey));
+                } finally {
+                    actionPending = false;
+                    keyRevision = -1;
+                }
+            }));
+            rebuildWidgets();
+        } catch (RuntimeException exception) {
+            actionPending = false;
+            ClientContext.toast(Component.translatable(errorKey));
+        }
+    }
+
+    @Override
+    public void tick() {
+        super.tick();
+        if (!actionPending && keyRevision != CipherChannels.channels().keyRevision()) rebuildWidgets();
+    }
+
     private void toggleTransport() {
         ServerBinding endpoint = ClientContext.currentServer();
         if (endpoint == null) return;
@@ -173,15 +202,13 @@ final class ChannelSettingsScreen extends SettingsScreenBase {
 
     private void confirmRotate(ChannelRecord channel) {
         ClientContext.setScreen(new ConfirmScreen(accepted -> {
-            if (accepted) runAction(() -> {
-                ChannelRecord replacement = CipherChannels.channels().rotateKey(channel.id());
+            ClientContext.setScreen(this);
+            if (accepted) runStorageAction(() -> CipherChannels.channels().rotateKeyAsync(channel.id()), replacement -> {
                 InviteClipboardGuard.clearMatching(channel.id());
                 channelId = replacement.id();
                 parent.select(replacement.id());
                 ClientContext.toast(Component.translatable("cipherchannels.toast.rotated", replacement.name()));
-                rebuildWidgets();
             }, "cipherchannels.toast.rotate_failed");
-            ClientContext.setScreen(this);
         }, Component.translatable("cipherchannels.confirm.rotate.title"),
             Component.translatable("cipherchannels.confirm.rotate.message", channel.name()),
             Component.translatable("cipherchannels.confirm.rotate.yes"), Component.translatable("gui.cancel")));
@@ -189,17 +216,15 @@ final class ChannelSettingsScreen extends SettingsScreenBase {
 
     private void confirmForget(ChannelRecord channel) {
         ClientContext.setScreen(new ConfirmScreen(accepted -> {
-            if (accepted) runAction(() -> {
-                CipherChannels.channels().forget(channel.id());
+            ClientContext.setScreen(this);
+            if (accepted) runStorageAction(() -> CipherChannels.channels().forgetAsync(channel.id()), ignored -> {
                 InviteClipboardGuard.clearMatching(channel.id());
                 UUID next = CipherChannels.channels().config().activeChannelId();
                 if (next == null) next = CipherChannels.channels().config().channels().stream()
                     .findFirst().map(ChannelRecord::id).orElse(null);
                 parent.select(next);
                 ClientContext.toast(Component.translatable("cipherchannels.toast.forgotten", channel.name()));
-                ClientContext.setScreen(parent);
             }, "cipherchannels.toast.forget_failed");
-            if (!accepted || record() != null) ClientContext.setScreen(this);
         }, Component.translatable("cipherchannels.confirm.forget.title"),
             Component.translatable("cipherchannels.confirm.forget.message", channel.name()),
             Component.translatable("cipherchannels.confirm.forget.yes"), Component.translatable("gui.cancel")));

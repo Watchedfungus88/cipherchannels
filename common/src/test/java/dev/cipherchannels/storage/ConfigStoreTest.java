@@ -19,7 +19,7 @@ class ConfigStoreTest {
     @TempDir Path temporaryDirectory;
 
     @Test
-    void writesVersionFourAtomicallyKeepsBackupAndNeverStoresSecrets() throws Exception {
+    void writesVersionFiveAtomicallyKeepsBackupAndNeverStoresSecrets() throws Exception {
         ConfigStore store = new ConfigStore(temporaryDirectory);
         UUID id = UUID.randomUUID();
         ChannelRecord record = new ChannelRecord(id, "Friends", "0123-4567-89AB-CDEF", null);
@@ -31,7 +31,7 @@ class ConfigStoreTest {
 
         String stored = Files.readString(store.configFile());
         assertTrue(Files.isRegularFile(temporaryDirectory.resolve("cipherchannels.json.bak")));
-        assertTrue(stored.contains("\"version\":4"));
+        assertTrue(stored.contains("\"version\":5"));
         assertFalse(stored.contains("verification"));
         assertTrue(stored.contains("ASCII_COMPATIBILITY"));
         assertFalse(stored.contains("CC1."));
@@ -109,7 +109,7 @@ class ConfigStoreTest {
 
         ConfigStore newerStore = new ConfigStore(temporaryDirectory.resolve("newer"));
         Files.createDirectories(newerStore.configFile().getParent());
-        String newer = "{\"version\":5,\"encryptionEnabled\":true,\"activeChannelId\":null,"
+        String newer = "{\"version\":6,\"encryptionEnabled\":true,\"activeChannelId\":null,"
             + "\"channels\":[],\"transportOverrides\":[]}";
         Files.writeString(newerStore.configFile(), newer);
         LoadedConfig readOnly = newerStore.load();
@@ -133,7 +133,7 @@ class ConfigStoreTest {
 
         LoadedConfig migrated = store.load();
         assertEquals(ConfigLoadState.NORMAL, migrated.state());
-        assertEquals("cipherchannels.notice.config.migrated_v4", migrated.notice());
+        assertEquals("cipherchannels.notice.config.migrated_v5", migrated.notice());
         assertTrue(migrated.config().encryptionEnabled());
         assertEquals(id, migrated.config().activeChannelId());
         assertEquals("Friends", migrated.config().activeChannel().name());
@@ -141,9 +141,52 @@ class ConfigStoreTest {
         assertEquals(TransportMode.ASCII_COMPATIBILITY,
             migrated.config().transportFor(ServerBinding.of("play.example", 25565)));
         String stored = Files.readString(store.configFile());
-        assertTrue(stored.contains("\"version\":4"));
+        assertTrue(stored.contains("\"version\":5"));
         assertFalse(stored.contains("verification"));
         assertEquals(old, Files.readString(temporaryDirectory.resolve("v3/cipherchannels.json.bak")));
+    }
+
+    @Test
+    void versionFourMigratesWithoutOptingAnyChannelIntoStorage() throws Exception {
+        ConfigStore store = new ConfigStore(temporaryDirectory.resolve("v4"));
+        Files.createDirectories(store.configDirectory());
+        UUID id = UUID.randomUUID();
+        String old = "{\"version\":4,\"encryptionEnabled\":true,\"activeChannelId\":\"" + id
+            + "\",\"channels\":[{\"id\":\"" + id + "\",\"name\":\"Friends\","
+            + "\"fingerprint\":\"0123-4567-89AB-CDEF\",\"binding\":null}],\"transportOverrides\":[]}";
+        Files.writeString(store.configFile(), old);
+        LoadedConfig loaded = store.load();
+        assertEquals(ConfigLoadState.NORMAL, loaded.state());
+        assertEquals(5, loaded.config().version());
+        assertTrue(loaded.config().encryptionEnabled());
+        assertEquals(id, loaded.config().activeChannelId());
+        assertFalse(loaded.config().activeChannel().rememberInvite());
+        assertEquals(old, Files.readString(store.configFile().resolveSibling("cipherchannels.json.bak")));
+    }
+
+    @Test
+    void remembersOnlyTheOptInFlagAndPreservesItOnRenameAndBindingChanges() {
+        ChannelRecord channel = new ChannelRecord(UUID.randomUUID(), "Friends", "0123-4567-89AB-CDEF", null)
+            .withRememberInvite(true).renamed("Renamed").withBinding(ServerBinding.of("play.example", 25565));
+        ConfigStore store = new ConfigStore(temporaryDirectory.resolve("remember"));
+        store.save(ChannelConfig.empty().upsert(channel, true));
+        assertEquals(channel, store.load().config().activeChannel());
+        assertTrue(store.load().config().activeChannel().rememberInvite());
+    }
+
+    @Test
+    void missingOrNonBooleanRememberFlagLocksVersionFive() throws Exception {
+        for (String flag : new String[] {"", ",\"rememberInvite\":\"true\"", ",\"rememberInvite\":null"}) {
+            Path directory = temporaryDirectory.resolve(UUID.randomUUID().toString());
+            Files.createDirectories(directory);
+            UUID id = UUID.randomUUID();
+            Files.writeString(directory.resolve("cipherchannels.json"),
+                "{\"version\":5,\"encryptionEnabled\":true,\"activeChannelId\":\"" + id
+                    + "\",\"channels\":[{\"id\":\"" + id + "\",\"name\":\"Friends\","
+                    + "\"fingerprint\":\"0123-4567-89AB-CDEF\",\"binding\":null" + flag
+                    + "}],\"transportOverrides\":[]}");
+            assertEquals(ConfigLoadState.LOCKED_CORRUPT, new ConfigStore(directory).load().state());
+        }
     }
 
     @Test

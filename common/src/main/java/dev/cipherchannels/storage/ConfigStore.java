@@ -40,7 +40,7 @@ public final class ConfigStore {
             Decoded decoded = read(configFile);
             if (decoded.migrated()) save(decoded.config());
             return new LoadedConfig(decoded.config(), true, ConfigLoadState.NORMAL,
-                decoded.migrated() ? "cipherchannels.notice.config.migrated_v4" : "");
+                decoded.migrated() ? "cipherchannels.notice.config.migrated_v5" : "");
         } catch (ObsoleteVersionException exception) {
             return resetObsolete(configFile);
         } catch (NewerVersionException exception) {
@@ -231,6 +231,7 @@ public final class ConfigStore {
             entry.addProperty("id", channel.id().toString());
             entry.addProperty("name", channel.name());
             entry.addProperty("fingerprint", channel.fingerprint());
+            entry.addProperty("rememberInvite", channel.rememberInvite());
             if (channel.binding() == null) {
                 entry.add("binding", com.google.gson.JsonNull.INSTANCE);
             } else {
@@ -287,7 +288,11 @@ public final class ConfigStore {
                 .matches("LOCAL_CREATED|UNVERIFIED|VERIFIED")) {
                 throw new IllegalArgumentException("Invalid verification value");
             }
-            channels.add(new ChannelRecord(id, name, fingerprint, binding));
+            JsonElement remember = version >= 5 ? required(entry, "rememberInvite") : null;
+            if (remember != null && (!remember.isJsonPrimitive() || !remember.getAsJsonPrimitive().isBoolean())) {
+                throw new IllegalArgumentException("rememberInvite must be a boolean");
+            }
+            channels.add(new ChannelRecord(id, name, fingerprint, binding, remember != null && remember.getAsBoolean()));
         }
         List<TransportOverride> overrides = new ArrayList<>();
         JsonElement rawOverrides = required(root, "transportOverrides");
@@ -305,7 +310,7 @@ public final class ConfigStore {
             overrides.add(new TransportOverride(endpoint, mode));
         }
         return new Decoded(new ChannelConfig(ChannelConfig.CURRENT_VERSION, enabled, active, channels, overrides),
-            version == 3);
+            version < ChannelConfig.CURRENT_VERSION);
     }
 
     private static JsonElement required(JsonObject object, String name) {

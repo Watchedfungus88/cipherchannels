@@ -18,6 +18,8 @@ The vanilla manager is implemented against the 1.21.1, 1.21.11/26.1/26.1.2, and 
 
 ## Chat behavior
 
+Optional remembered invites use macOS Keychain, Windows Credential Manager, or Linux Secret Service. Linux requires libsecret and a working desktop keyring. Unsupported or locked stores never cause keys to be written to plaintext files.
+
 | Integration | Behavior |
 |---|---|
 | Vanilla public chat | Supported in integrated singleplayer and vanilla multiplayer transport |

@@ -3,7 +3,11 @@ package dev.cipherchannels.channels;
 import java.util.Objects;
 import java.util.UUID;
 
-public record ChannelRecord(UUID id, String name, String fingerprint, ServerBinding binding) {
+public record ChannelRecord(UUID id, String name, String fingerprint, ServerBinding binding, boolean rememberInvite) {
+    public ChannelRecord(UUID id, String name, String fingerprint, ServerBinding binding) {
+        this(id, name, fingerprint, binding, false);
+    }
+
     public ChannelRecord {
         Objects.requireNonNull(id, "id");
         name = validateName(name);
@@ -13,11 +17,15 @@ public record ChannelRecord(UUID id, String name, String fingerprint, ServerBind
     }
 
     public ChannelRecord renamed(String newName) {
-        return new ChannelRecord(id, newName, fingerprint, binding);
+        return new ChannelRecord(id, newName, fingerprint, binding, rememberInvite);
     }
 
     public ChannelRecord withBinding(ServerBinding newBinding) {
-        return new ChannelRecord(id, name, fingerprint, newBinding);
+        return new ChannelRecord(id, name, fingerprint, newBinding, rememberInvite);
+    }
+
+    public ChannelRecord withRememberInvite(boolean remember) {
+        return new ChannelRecord(id, name, fingerprint, binding, remember);
     }
 
     private static String validateName(String value) {

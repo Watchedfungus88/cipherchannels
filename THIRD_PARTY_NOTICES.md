@@ -1,5 +1,7 @@
 # Third-party notices
 
+Optional OS credential storage uses Minecraft's existing JNA runtime (LGPL 2.1 or Apache License 2.0); CipherChannels does not bundle another copy of JNA. Linux integration calls the system-installed libsecret.
+
 CipherChannels itself is All Rights Reserved. Its Base32768 repertoire and encoding approach are adapted from [qntm/base32768](https://github.com/qntm/base32768), which is available under the MIT License:
 
 ```text

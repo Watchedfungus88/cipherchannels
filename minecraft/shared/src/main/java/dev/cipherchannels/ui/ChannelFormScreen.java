@@ -3,6 +3,8 @@ package dev.cipherchannels.ui;
 import dev.cipherchannels.CipherChannels;
 import dev.cipherchannels.channels.ChannelRecord;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.function.Consumer;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
@@ -22,6 +24,10 @@ final class ChannelFormScreen extends FormScreenBase {
     private String name = "";
     private String invite = "";
     private boolean reveal;
+    private boolean submitting;
+    private boolean abandoned;
+    private boolean edited;
+    private boolean attempted;
     private EditBox nameInput;
     private EditBox inviteInput;
     private Button submitButton;
@@ -70,25 +76,26 @@ final class ChannelFormScreen extends FormScreenBase {
             Component inviteLabel = Component.translatable("cipherchannels.form.invite.label");
             addRenderableOnly(new StringWidget(left, y, font.width(inviteLabel), font.lineHeight, inviteLabel, font));
             y += 15;
-            inviteInput = addRenderableWidget(new EditBox(font, left, y, panelWidth, 20,
+            int controlWidth = 46;
+            int inputWidth = panelWidth - 2 * (controlWidth + 4);
+            inviteInput = addRenderableWidget(new EditBox(font, left, y, inputWidth, 20,
                 Component.translatable("cipherchannels.form.invite.narration")));
             inviteInput.setMaxLength(96);
             inviteInput.setHint(Component.translatable("cipherchannels.form.invite.hint"));
             inviteInput.setValue(invite);
             inviteInput.setResponder(value -> {
                 invite = value;
+                edited = true;
                 validateForm();
             });
             ClientContext.maskInvite(inviteInput, reveal);
-            y += 24;
-            int half = (panelWidth - 4) / 2;
             addRenderableWidget(Button.builder(Component.translatable(reveal
                     ? "cipherchannels.form.invite.hide" : "cipherchannels.form.invite.show"),
-                ignored -> toggleReveal()).bounds(left, y, half, 20).build());
+                ignored -> toggleReveal()).bounds(left + inputWidth + 4, y, controlWidth, 20).build());
             addRenderableWidget(Button.builder(Component.translatable("cipherchannels.form.invite.paste"), ignored -> {
                 inviteInput.setValue(minecraft.keyboardHandler.getClipboard());
                 inviteInput.setFocused(true);
-            }).bounds(left + half + 4, y, half, 20).build());
+            }).bounds(left + inputWidth + controlWidth + 8, y, controlWidth, 20).build());
             y += 30;
         }
         if (mode != Mode.LOAD_KEY) {
@@ -103,6 +110,7 @@ final class ChannelFormScreen extends FormScreenBase {
             nameInput.setValue(name);
             nameInput.setResponder(value -> {
                 name = value;
+                edited = true;
                 validateForm();
             });
             y += 30;
@@ -139,9 +147,10 @@ final class ChannelFormScreen extends FormScreenBase {
     private void validateForm() {
         if (submitButton == null || validation == null) return;
         Component problem = validationProblem();
-        submitButton.active = problem == null;
+        submitButton.active = problem == null && !submitting;
         submitButton.setTooltip(problem == null ? null : Tooltip.create(problem));
-        validation.setMessage(problem == null ? Component.empty() : problem.copy().withStyle(ChatFormatting.RED));
+        validation.setMessage(problem == null || !edited && !attempted
+            ? Component.empty() : problem.copy().withStyle(ChatFormatting.RED));
     }
 
     private Component validationProblem() {
@@ -178,6 +187,9 @@ final class ChannelFormScreen extends FormScreenBase {
 
     @Override
     protected void submitForm() {
+        if (submitting) return;
+        attempted = true;
+        validateForm();
         if (validationProblem() != null) return;
         try {
             switch (mode) {
@@ -203,20 +215,37 @@ final class ChannelFormScreen extends FormScreenBase {
 
     private void importChannel() {
         ChannelRecord saved = CipherChannels.channels().savedChannelForInvite(invite);
-        ChannelRecord imported = CipherChannels.channels().importInvite(invite, name);
-        ChannelManagerScreen manager = (ChannelManagerScreen) parent;
-        if (saved == null) manager.select(imported.id());
-        ClientContext.toast(Component.translatable(saved == null
-            ? "cipherchannels.toast.imported" : "cipherchannels.toast.key_loaded", imported.name()));
-        clearInvite();
-        ClientContext.setScreen(manager);
+        finishLoading(CipherChannels.channels().importInviteAsync(invite, name), imported -> {
+            ChannelManagerScreen manager = (ChannelManagerScreen) parent;
+            if (saved == null) manager.select(imported.id());
+            ClientContext.toast(Component.translatable(saved == null
+                ? "cipherchannels.toast.imported" : "cipherchannels.toast.key_loaded", imported.name()));
+            clearInvite();
+            ClientContext.setScreen(manager);
+        });
     }
 
     private void loadKey() {
-        ChannelRecord loaded = CipherChannels.channels().loadKey(channelId, invite);
-        ClientContext.toast(Component.translatable("cipherchannels.toast.key_loaded", loaded.name()));
-        clearInvite();
-        ClientContext.setScreen(parent);
+        finishLoading(CipherChannels.channels().loadKeyAsync(channelId, invite), loaded -> {
+            ClientContext.toast(Component.translatable("cipherchannels.toast.key_loaded", loaded.name()));
+            clearInvite();
+            ClientContext.setScreen(parent);
+        });
+    }
+
+    private void finishLoading(CompletableFuture<ChannelRecord> action, Consumer<ChannelRecord> success) {
+        submitting = true;
+        validateForm();
+        action.whenComplete((loaded, failure) -> minecraft.execute(() -> {
+            if (abandoned) return;
+            submitting = false;
+            if (failure == null) success.accept(loaded);
+            else {
+                validateForm();
+                validation.setMessage(Component.translatable("cipherchannels.form.validation.failed")
+                    .withStyle(ChatFormatting.RED));
+            }
+        }));
     }
 
     private void renameChannel() {
@@ -237,6 +266,7 @@ final class ChannelFormScreen extends FormScreenBase {
 
     @Override
     public void onClose() {
+        abandoned = true;
         clearInvite();
         ClientContext.setScreen(parent);
     }
