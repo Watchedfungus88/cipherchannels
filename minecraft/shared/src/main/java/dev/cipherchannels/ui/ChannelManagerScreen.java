@@ -4,7 +4,6 @@ import dev.cipherchannels.CipherChannels;
 import dev.cipherchannels.channels.ChannelConfig;
 import dev.cipherchannels.channels.ChannelRecord;
 import dev.cipherchannels.channels.ChannelStatus;
-import dev.cipherchannels.channels.TransportState;
 import dev.cipherchannels.chat.ChatLogProtection;
 import java.util.UUID;
 import net.minecraft.ChatFormatting;
@@ -22,6 +21,7 @@ public final class ChannelManagerScreen extends Screen {
     private UUID selectedId;
     private Button useButton;
     private Button settingsButton;
+    private long keyRevision;
 
     public ChannelManagerScreen(Screen parent) {
         this(parent, null);
@@ -39,6 +39,7 @@ public final class ChannelManagerScreen extends Screen {
 
     @Override
     protected void init() {
+        keyRevision = CipherChannels.channels().keyRevision();
         int panelWidth = Math.min(WIDTH, width - 20);
         int left = (width - panelWidth) / 2;
         addRenderableOnly(new StringWidget((width - font.width(title)) / 2, 14,
@@ -56,19 +57,24 @@ public final class ChannelManagerScreen extends Screen {
 
         Button encryption = addRenderableWidget(Button.builder(encryptionLabel(config), ignored -> toggleEncryption())
             .bounds(width / 2 - 100, 32, 200, 20).build());
+        Component problem = stateProblem(config);
+        encryption.setTooltip(Tooltip.create(problem != null ? problem
+            : Component.translatable(config.encryptionEnabled()
+                ? "cipherchannels.manager.encryption.on_tooltip" : "cipherchannels.chat.status.off")));
         if (!config.encryptionEnabled()) {
             Component reason = enableBlockedReason(config.activeChannel());
             if (reason != null) disable(encryption, reason);
         }
 
-        addRenderableOnly(new MultiLineTextWidget(left, 57, stateLine(config), font)
-            .setMaxWidth(panelWidth).setMaxRows(2).setCentered(true));
-
-        int listTop = 78;
+        if (problem != null) {
+            addRenderableOnly(new MultiLineTextWidget(left, 57, problem, font)
+                .setMaxWidth(panelWidth).setMaxRows(2).setCentered(true));
+        }
+        int listTop = problem == null ? 60 : 82;
         int footerTop = height - 76;
         int listHeight = Math.max(1, footerTop - listTop - 4);
         ChannelList list = addRenderableWidget(new ChannelList(minecraft, width, listHeight,
-            listTop, 36, panelWidth, this::selectRow, this::useFromList));
+            listTop, 24, panelWidth, this::selectRow, this::useFromList));
         list.setX(0);
         for (ChannelRecord record : config.channels()) list.addRecord(record, record.id().equals(selectedId));
         if (config.channels().isEmpty()) {
@@ -93,6 +99,12 @@ public final class ChannelManagerScreen extends Screen {
         updateSelectionButtons();
     }
 
+    @Override
+    public void tick() {
+        super.tick();
+        if (keyRevision != CipherChannels.channels().keyRevision()) rebuildWidgets();
+    }
+
     private void initLocked(int left, int panelWidth) {
         addRenderableOnly(new MultiLineTextWidget(left, 48,
             Component.translatable("cipherchannels.locked."
@@ -113,16 +125,14 @@ public final class ChannelManagerScreen extends Screen {
             ? "cipherchannels.manager.encryption.on" : "cipherchannels.manager.encryption.off");
     }
 
-    private Component stateLine(ChannelConfig config) {
-        if (!config.encryptionEnabled()) return Component.translatable("cipherchannels.manager.state.off")
-            .withStyle(ChatFormatting.GRAY);
+    private Component stateProblem(ChannelConfig config) {
+        if (!config.encryptionEnabled()) return null;
         if (!ChatLogProtection.allowsEncryption()) return Component.translatable(
             "cipherchannels.manager.state.logging_blocked").withStyle(ChatFormatting.RED);
         ChannelStatus status = CipherChannels.channels().status(ClientContext.currentServer());
         ChannelRecord active = status.activeChannel();
         return switch (status.state()) {
-            case READY -> Component.translatable("cipherchannels.manager.state.on", active.name())
-                .withStyle(ChatFormatting.GREEN);
+            case READY, OFF -> null;
             case NO_CHANNEL -> (active == null
                 ? Component.translatable("cipherchannels.manager.state.no_channel")
                 : Component.translatable("cipherchannels.manager.state.key_needed", active.name()))
@@ -131,7 +141,6 @@ public final class ChannelManagerScreen extends Screen {
                 active.name(), active.binding().displayName()).withStyle(ChatFormatting.RED);
             case CONFIG_LOCKED -> Component.translatable("cipherchannels.manager.state.config_locked")
                 .withStyle(ChatFormatting.RED);
-            case OFF -> Component.translatable("cipherchannels.manager.state.off").withStyle(ChatFormatting.GRAY);
         };
     }
 
@@ -234,9 +243,12 @@ public final class ChannelManagerScreen extends Screen {
     private void confirmReset() {
         ClientContext.setScreen(new ConfirmScreen(accepted -> {
             if (accepted) runAction(() -> {
-                CipherChannels.channels().resetUnsafeConfiguration();
-                ClientContext.toast(Component.translatable("cipherchannels.toast.config_reset"));
-                rebuildWidgets();
+                CipherChannels.channels().resetUnsafeConfigurationAsync().whenComplete((result, failure) ->
+                    minecraft.execute(() -> {
+                        ClientContext.toast(Component.translatable(failure == null
+                            ? "cipherchannels.toast.config_reset" : "cipherchannels.toast.reset_failed"));
+                        rebuildWidgets();
+                    }));
             }, "cipherchannels.toast.reset_failed");
             ClientContext.setScreen(this);
         }, Component.translatable("cipherchannels.confirm.reset.title"),

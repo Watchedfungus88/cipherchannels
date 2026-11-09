@@ -61,15 +61,14 @@ final class ChannelList extends ObjectSelectionList<ChannelList.ChannelEntry> {
             boolean active = record.id().equals(CipherChannels.channels().config().activeChannelId());
             boolean ready = CipherChannels.channels().hasSessionKey(record.id());
             Component name = Component.literal(record.name());
-            Component activeLabel = Component.translatable("cipherchannels.manager.row.active");
-            Component status = Component.translatable(ready
-                ? "cipherchannels.manager.row.key_loaded" : "cipherchannels.manager.row.key_needed");
-            int activeWidth = active ? font.width(activeLabel) : 0;
+            Component status = !ready ? Component.translatable(active
+                ? "cipherchannels.manager.row.active_key_needed" : "cipherchannels.manager.row.key_needed")
+                : active ? Component.translatable("cipherchannels.manager.row.active") : Component.empty();
+            int statusWidth = Math.min(font.width(status), Math.max(1, (width - 16) / 2));
             drawText(graphics, name, left + 4, top + 6,
-                Math.max(1, width - 8 - (active ? activeWidth + 8 : 0)), 0xFFFFFFFF);
-            if (active) graphics.drawString(font, activeLabel, left + width - activeWidth - 4,
-                top + 6, 0xFFAAAAAA, false);
-            drawText(graphics, status, left + 4, top + 20, width - 8, ready ? 0xFFAAAAAA : 0xFFFFAA00);
+                Math.max(1, width - 8 - (statusWidth > 0 ? statusWidth + 8 : 0)), 0xFFFFFFFF);
+            if (statusWidth > 0) drawText(graphics, status, left + width - statusWidth - 4,
+                top + 6, statusWidth, ready ? 0xFFAAAAAA : 0xFFFFAA00);
         }
 
         @Override

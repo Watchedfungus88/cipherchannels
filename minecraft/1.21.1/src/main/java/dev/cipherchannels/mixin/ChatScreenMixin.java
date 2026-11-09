@@ -108,11 +108,13 @@ public abstract class ChatScreenMixin {
         DraftStatus status = cipherchannels$draftStatus == null
             ? ClientContext.draftStatus(input.getValue()) : cipherchannels$draftStatus;
         Font font = Minecraft.getInstance().font;
-        int x = Math.max(4, screen.width - font.width(status.message()) - 4);
+        int textWidth = font.width(status.message());
+        int x = UiPolicy.chatStatusX(screen.width, cipherchannels$managerButton.getX(),
+            cipherchannels$managerButton.getWidth(), textWidth);
         int y = screen.height - 66;
         int background = UiPolicy.textBackgroundColor(
             Minecraft.getInstance().options.textBackgroundOpacity().get());
-        graphics.fill(x - 2, y - 2, screen.width - 2, y + font.lineHeight + 2, background);
+        graphics.fill(x - 2, y - 2, x + textWidth + 2, y + font.lineHeight + 2, background);
         graphics.drawString(font, status.message(), x, y, status.color(), true);
     }
 

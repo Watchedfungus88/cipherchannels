@@ -4,7 +4,7 @@
 
 CipherChannels is a client-only Fabric and NeoForge mod that encrypts complete Minecraft public-chat messages between people who share a secret invite. The server needs no plugin. It relays and signs a fixed 256-character ciphertext instead of receiving the plaintext.
 
-CipherChannels 2.2 uses the same `CC2` protocol, channels, invites, and settings as 2.0 and 2.1. CipherChannels 1.x remains incompatible.
+CipherChannels 2.3 uses the same `CC2` protocol, channels, and invites as 2.0–2.2. Existing settings migrate automatically. CipherChannels 1.x remains incompatible.
 
 ## Quick start
 
@@ -12,7 +12,7 @@ CipherChannels 2.2 uses the same `CC2` protocol, channels, invites, and settings
 2. Open `Channel Settings…` to copy or load the secret invite. Share it privately; anyone with it can read and create channel messages.
 3. Select the channel, choose `Use Channel`, then turn `Encrypted Chat` on.
 
-Keys are not saved. Restarting Minecraft clears every key, so load the invite again from that channel's settings before using it. The manager uses standard Minecraft lists, buttons, forms, confirmations, tooltips, and toasts.
+Keys are session-only by default. To load a channel automatically after restarting, turn on `Remember Invite` in its existing settings. This saves the key in your OS credential store, not in Minecraft's settings files.
 
 ## Downloads
 
@@ -20,16 +20,16 @@ Install exactly one JAR matching the Minecraft version and loader.
 
 | Minecraft | Loader | Java | Required runtime | JAR |
 |---|---|---:|---|---|
-| 1.21.1 | Fabric | 21 | Fabric Loader 0.19.3+, Fabric API 0.116.15+1.21.1+ | `cipherchannels-2.2.0+fabric.1.21.1.jar` |
-| 1.21.1 | NeoForge | 21 | NeoForge 21.1.248+ | `cipherchannels-2.2.0+neoforge.1.21.1.jar` |
-| 1.21.11 | Fabric | 21 | Fabric Loader 0.19.3+, Fabric API 0.141.6+1.21.11+ | `cipherchannels-2.2.0+fabric.1.21.11.jar` |
-| 1.21.11 | NeoForge | 21 | NeoForge 21.11.45+ | `cipherchannels-2.2.0+neoforge.1.21.11.jar` |
-| 26.1 | Fabric | 25 | Fabric Loader 0.19.3+, Fabric API 0.145.1+26.1+ | `cipherchannels-2.2.0+fabric.26.1.jar` |
-| 26.1 | NeoForge | 25 | NeoForge 26.1.0.19-beta+ | `cipherchannels-2.2.0+neoforge.26.1.jar` |
-| 26.1.2 | Fabric | 25 | Fabric Loader 0.19.3+, Fabric API 0.155.2+26.1.2+ | `cipherchannels-2.2.0+fabric.26.1.2.jar` |
-| 26.1.2 | NeoForge | 25 | NeoForge 26.1.2.94+ | `cipherchannels-2.2.0+neoforge.26.1.2.jar` |
-| 26.2 | Fabric | 25 | Fabric Loader 0.19.3+, Fabric API 0.156.0+26.2+ | `cipherchannels-2.2.0+fabric.26.2.jar` |
-| 26.2 | NeoForge | 25 | NeoForge 26.2.0.53-beta+ | `cipherchannels-2.2.0+neoforge.26.2.jar` |
+| 1.21.1 | Fabric | 21 | Fabric Loader 0.19.3+, Fabric API 0.116.15+1.21.1+ | `cipherchannels-2.3.0+fabric.1.21.1.jar` |
+| 1.21.1 | NeoForge | 21 | NeoForge 21.1.248+ | `cipherchannels-2.3.0+neoforge.1.21.1.jar` |
+| 1.21.11 | Fabric | 21 | Fabric Loader 0.19.3+, Fabric API 0.141.6+1.21.11+ | `cipherchannels-2.3.0+fabric.1.21.11.jar` |
+| 1.21.11 | NeoForge | 21 | NeoForge 21.11.45+ | `cipherchannels-2.3.0+neoforge.1.21.11.jar` |
+| 26.1 | Fabric | 25 | Fabric Loader 0.19.3+, Fabric API 0.145.1+26.1+ | `cipherchannels-2.3.0+fabric.26.1.jar` |
+| 26.1 | NeoForge | 25 | NeoForge 26.1.0.19-beta+ | `cipherchannels-2.3.0+neoforge.26.1.jar` |
+| 26.1.2 | Fabric | 25 | Fabric Loader 0.19.3+, Fabric API 0.155.2+26.1.2+ | `cipherchannels-2.3.0+fabric.26.1.2.jar` |
+| 26.1.2 | NeoForge | 25 | NeoForge 26.1.2.94+ | `cipherchannels-2.3.0+neoforge.26.1.2.jar` |
+| 26.2 | Fabric | 25 | Fabric Loader 0.19.3+, Fabric API 0.156.0+26.2+ | `cipherchannels-2.3.0+fabric.26.2.jar` |
+| 26.2 | NeoForge | 25 | NeoForge 26.2.0.53-beta+ | `cipherchannels-2.3.0+neoforge.26.2.jar` |
 
 Fabric API is required on Fabric. NeoForge builds have no extra mod dependency. Mod Menu is optional.
 
@@ -45,7 +45,9 @@ Slash commands remain plaintext because the server must interpret them. The UI w
 
 The invite is the complete 256-bit shared secret. Anyone holding it can read and create valid channel messages. `[CC]` proves possession of that shared secret, not who authored a message.
 
-Keys and replay history exist only for the current Minecraft session. Replay protection retains up to 4,096 authenticated frames for six hours, but restarting clears it. Persistent settings contain only channel names, UUIDs, fingerprints, bindings, transport overrides, the active selection, and enabled intent.
+Remembered keys use macOS Keychain, Windows Credential Manager, or Linux Secret Service through libsecret and an installed keyring. The OS may ask for access or unlocking. If storage is unavailable, no plaintext file fallback is used. Turning `Remember Invite` off removes the saved copy without unloading the current session key. Forgetting removes it; rotating replaces it.
+
+Replay protection remains session-only: up to 4,096 authenticated frames for six hours, cleared by restart. Persistent settings contain only channel metadata, the remember-invite flag, transport overrides, the active selection, and enabled intent.
 
 Fingerprints are optional comparison aids. Matching the full fingerprint confirms the same shared key; CipherChannels does not store a trust decision. If an invite may be exposed, rotate the channel key, distribute the new invite privately, and stop using the old one.
 
@@ -66,6 +68,6 @@ Use Java 25 to run the checked-in Gradle wrapper; Java 21 targets use a toolchai
 ./scripts/reproducible-build.sh
 ```
 
-Release files appear in `build/release`. The build validates all ten JARs, creates the source ZIP, and writes `SHA256SUMS`. Dependency verification and the wrapper distribution checksum are enabled. Tagged GitHub builds generate provenance attestations.
+Release files appear in `build/release`. The build validates all ten JARs, creates the source ZIP, and writes `SHA256SUMS`. Dependency verification and the wrapper distribution checksum are enabled. See [dependency verification notes](gradle/DEPENDENCY_VERIFICATION.md) for verified Fabric archive variants. Tagged GitHub builds generate provenance attestations.
 
 See [Protocol](PROTOCOL.md), [Security](SECURITY.md), [Compatibility](COMPATIBILITY.md), [Changelog](CHANGELOG.md), [interoperability vectors](vectors/README.md), and [third-party notices](THIRD_PARTY_NOTICES.md). CipherChannels is [All Rights Reserved](LICENSE).

@@ -36,6 +36,7 @@ subprojects {
         tasks.withType<Test>().configureEach { useJUnitPlatform() }
         if (project.name == "common") return@withPlugin
 
+        evaluationDependsOn(":common")
         val minecraftVersion = project.name.substringAfter('-')
         val javaVersion = if (minecraftVersion.startsWith("1.")) 21 else 25
         extensions.configure<BasePluginExtension> { archivesName = "cipherchannels" }

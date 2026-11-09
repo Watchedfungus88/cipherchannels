@@ -1,5 +1,17 @@
 # Changelog
 
+## 2.3.0 — 2026-11-09
+
+- Restored strict Fabric 1.21.1 dependency verification by pinning independently verified archive variants, without upgrading dependencies or adding trust exceptions.
+- Fixed isolated platform builds so common source sets are configured before platform archives use them.
+- Centered chat status text above the CipherChannels button, with its background fitted to the text.
+- Simplified every screen while keeping vanilla controls: compact channel rows, action-only settings, quieter forms, and short chat status without byte or compression readouts.
+- Moved fingerprints, server details, and repeated explanations into tooltips while preserving invite controls, blocked-send warnings, and destructive-action confirmations.
+- Added an opt-in `Remember Invite` toggle to existing channel settings, backed by macOS Keychain, Windows Credential Manager, or Linux Secret Service.
+- Kept session-only keys as the default, with no new screens or mod-specific password prompts.
+- Restored remembered keys asynchronously, preserved strict binding and fail-closed sending, and removed or replaced saved credentials on forgetting or rotation.
+- Migrated settings to schema v5 without opting existing channels into storage.
+
 ## 2.2.1 — 2026-08-23
 
 - Replaced the narrow channel frame with a full-width vanilla selection area and compact centered rows.

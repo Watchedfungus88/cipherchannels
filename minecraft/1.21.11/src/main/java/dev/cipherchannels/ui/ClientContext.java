@@ -8,7 +8,6 @@ import dev.cipherchannels.channels.MessagePreflight;
 import dev.cipherchannels.channels.OutboundBlockReason;
 import dev.cipherchannels.channels.ServerBinding;
 import dev.cipherchannels.channels.TransportState;
-import dev.cipherchannels.protocol.FramePreview;
 import dev.cipherchannels.protocol.TransportMode;
 import java.util.Objects;
 import net.minecraft.util.Util;
@@ -109,8 +108,12 @@ public final class ClientContext {
         }
 
         MessagePreflight preflight = CipherChannels.channels().preflightOutgoing(normalized, currentServer());
+        return statusForPreflight(preflight, normalized.length());
+    }
+
+    static DraftStatus statusForPreflight(MessagePreflight preflight, int draftLength) {
         if (preflight.kind() == MessagePreflight.Kind.PASSTHROUGH) {
-            if (normalized.length() > 256) {
+            if (draftLength > 256) {
                 return new DraftStatus(Component.translatable("cipherchannels.chat.status.public_too_long"), 0xFFFF5555, preflight);
             }
             return new DraftStatus(Component.translatable("cipherchannels.chat.status.off"), 0xFFAAAAAA, preflight);
@@ -119,17 +122,9 @@ public final class ClientContext {
         ChannelStatus channelStatus = preflight.channelStatus();
         ChannelRecord channel = channelStatus.activeChannel();
         String name = channel == null ? Component.translatable("cipherchannels.channel.none").getString() : channel.name();
-        if (normalized.isEmpty() && channelStatus.state() == TransportState.READY) {
-            Component text = Component.translatable("cipherchannels.chat.status.encrypted",
-                name, transportName(preflight.transport()));
-            return new DraftStatus(text, 0xFF55FFFF, preflight);
-        }
-        if (preflight.ready()) {
-            FramePreview preview = preflight.frame();
-            Component text = preview.compressed()
-                ? Component.translatable("cipherchannels.chat.status.ready_compressed", preview.sourceBytes())
-                : Component.translatable("cipherchannels.chat.status.ready_raw", preview.sourceBytes(), preview.capacity());
-            return new DraftStatus(text, 0xFF55FF55, preflight);
+        if (preflight.ready() || draftLength == 0 && channelStatus.state() == TransportState.READY) {
+            return new DraftStatus(Component.translatable("cipherchannels.chat.status.encrypted", name),
+                0xFF55FF55, preflight);
         }
         return new DraftStatus(blockExplanation(preflight), 0xFFFF5555, preflight);
     }
@@ -145,11 +140,8 @@ public final class ClientContext {
                 channel == null || channel.binding() == null ? "?" : channel.binding().displayName());
             case EMPTY -> Component.translatable("cipherchannels.block.empty");
             case MALFORMED_UNICODE -> Component.translatable("cipherchannels.block.unicode");
-            case SOURCE_TOO_LARGE -> Component.translatable("cipherchannels.block.source_too_large",
-                preflight.frame() == null ? "?" : preflight.frame().sourceBytes());
-            case DOES_NOT_FIT -> Component.translatable("cipherchannels.block.does_not_fit",
-                preflight.frame() == null ? "?" : preflight.frame().sourceBytes(),
-                preflight.transport() == null ? "?" : preflight.transport().rawCapacity());
+            case SOURCE_TOO_LARGE -> Component.translatable("cipherchannels.block.source_too_large");
+            case DOES_NOT_FIT -> Component.translatable("cipherchannels.block.does_not_fit");
             case VANILLA_LIMIT -> Component.translatable("cipherchannels.block.vanilla_limit");
             case ENCRYPTION_FAILED -> Component.translatable("cipherchannels.block.encryption_failed");
             case NONE -> Component.translatable("cipherchannels.block.unknown");

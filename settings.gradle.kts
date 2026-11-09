@@ -13,6 +13,10 @@ plugins {
 
 rootProject.name = "CipherChannels"
 
+// Keep tracked Git text metadata in source archives, but never the .git directory.
+org.apache.tools.ant.DirectoryScanner.removeDefaultExclude("**/.gitattributes")
+org.apache.tools.ant.DirectoryScanner.removeDefaultExclude("**/.gitignore")
+
 include("common", "fabric-1.21.1", "fabric-1.21.11", "fabric-26.1", "fabric-26.1.2", "fabric-26.2",
     "neoforge-1.21.1", "neoforge-1.21.11", "neoforge-26.1", "neoforge-26.1.2", "neoforge-26.2")
 

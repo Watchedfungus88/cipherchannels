@@ -8,7 +8,7 @@ import java.util.UUID;
 
 public record ChannelConfig(int version, boolean encryptionEnabled, UUID activeChannelId,
                             List<ChannelRecord> channels, List<TransportOverride> transportOverrides) {
-    public static final int CURRENT_VERSION = 4;
+    public static final int CURRENT_VERSION = 5;
     public static final int MAX_CHANNELS = 64;
     public static final int MAX_TRANSPORT_OVERRIDES = 64;
 
@@ -20,6 +20,9 @@ public record ChannelConfig(int version, boolean encryptionEnabled, UUID activeC
         transportOverrides = List.copyOf(transportOverrides);
         if (channels.size() > MAX_CHANNELS) {
             throw new IllegalArgumentException("Too many channel records");
+        }
+        if (channels.stream().filter(ChannelRecord::rememberInvite).count() > SessionKeyStore.MAX_KEYS) {
+            throw new IllegalArgumentException("Too many remembered invites");
         }
         if (transportOverrides.size() > MAX_TRANSPORT_OVERRIDES) {
             throw new IllegalArgumentException("Too many transport overrides");
